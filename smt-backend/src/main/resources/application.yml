@@ -1,0 +1,28 @@
+server:
+  port: 8080
+logging:
+  file:
+    path: /var/log
+  level:
+    org:
+      springframework:
+        security: debug
+      jooq: info
+spring:
+  main:
+    web-application-type: servlet
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=project;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: YourStrong!Passw0rd
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+jwt:
+  secret: "secret"
+  expiration-min: 100
+  cookie-name: "jwt"
