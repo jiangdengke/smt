@@ -11,8 +11,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.*;
@@ -33,12 +31,6 @@ public class WebSecurityConfig {
   private final Jwt jwt;
 
 
-  /** 密码编码器（BCrypt）。 */
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
-
   /** 认证管理器。 */
   @Bean
   public AuthenticationManager authenticationManager(
@@ -51,7 +43,6 @@ public class WebSecurityConfig {
   public RequestMatcher publicEndPointMatcher() {
     return new OrRequestMatcher(
         new AntPathRequestMatcher("/auth/sign-in", HttpMethod.POST.name()),
-        new AntPathRequestMatcher("/auth/sign-up", HttpMethod.POST.name()),
         new AntPathRequestMatcher("/v3/api-docs/**", HttpMethod.GET.name()),
         new AntPathRequestMatcher("/swagger-ui/**", HttpMethod.GET.name()),
         new AntPathRequestMatcher("/swagger-ui.html", HttpMethod.GET.name()),

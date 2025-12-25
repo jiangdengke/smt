@@ -12,14 +12,14 @@ import org.jdk.project.dto.repair.RepairRecordQueryDto;
 import org.jdk.project.dto.repair.RepairRecordRequest;
 import org.jdk.project.dto.repair.RepairRecordViewDto;
 import org.jdk.project.exception.BusinessException;
+import org.jdk.project.repository.RepairRecordRepository;
 import org.jooq.Condition;
-import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.SortField;
 import org.jooq.SortOrder;
 import org.jooq.impl.DSL;
-import org.jooq.generated.tables.*;
-import org.jooq.generated.tables.records.RepairRecordRecord;
+import org.jooq.generated.tables.RepairRecord;
+import org.jooq.generated.tables.RepairRecordPerson;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,28 +31,17 @@ public class RepairRecordService {
   private static final RepairRecord REPAIR_RECORD = RepairRecord.REPAIR_RECORD;
   private static final RepairRecordPerson REPAIR_RECORD_PERSON =
       RepairRecordPerson.REPAIR_RECORD_PERSON;
-  private static final SysFactory SYS_FACTORY = SysFactory.SYS_FACTORY;
-  private static final SysWorkshop SYS_WORKSHOP = SysWorkshop.SYS_WORKSHOP;
-  private static final SysLine SYS_LINE = SysLine.SYS_LINE;
-  private static final SysModel SYS_MODEL = SysModel.SYS_MODEL;
-  private static final SysMachine SYS_MACHINE = SysMachine.SYS_MACHINE;
-  private static final SysAbnormalCategory SYS_ABNORMAL_CATEGORY =
-      SysAbnormalCategory.SYS_ABNORMAL_CATEGORY;
-  private static final SysAbnormalType SYS_ABNORMAL_TYPE = SysAbnormalType.SYS_ABNORMAL_TYPE;
-  private static final SysTeam SYS_TEAM = SysTeam.SYS_TEAM;
-  private static final SysPerson SYS_PERSON = SysPerson.SYS_PERSON;
 
-  private final DSLContext dsl;
+  private final RepairRecordRepository repairRecordRepository;
 
   public PageResponseDto<List<RepairRecordViewDto>> list(
       RepairRecordQueryDto query, PageRequestDto pageRequest) {
     Condition condition = buildCondition(query);
-    long total = dsl.selectCount().from(REPAIR_RECORD).where(condition).fetchOne(0, long.class);
+    long total = repairRecordRepository.count(condition);
     if (total == 0) {
       return new PageResponseDto<>(0, List.of());
     }
     List<RepairRecordViewDto> records = fetchRecords(condition, pageRequest);
-    attachRepairPeople(records);
     return new PageResponseDto<>(total, records);
   }
 
@@ -62,7 +51,6 @@ public class RepairRecordService {
     if (records.isEmpty()) {
       throw new BusinessException("维修记录不存在");
     }
-    attachRepairPeople(records);
     return records.get(0);
   }
 
@@ -70,29 +58,40 @@ public class RepairRecordService {
   public Long create(RepairRecordRequest request) {
     String shift = normalizeShift(request.getShift());
     validateRepairState(request.getIsFixed(), request.getFixedAt(), request.getRepairMinutes());
-    RepairRecordRecord record = dsl.newRecord(REPAIR_RECORD);
-    record.setOccurAt(request.getOccurAt());
-    record.setShift(shift);
-    record.setFactoryId(request.getFactoryId());
-    record.setWorkshopId(request.getWorkshopId());
-    record.setLineId(request.getLineId());
-    record.setModelId(request.getModelId());
-    record.setMachineId(request.getMachineId());
-    record.setAbnormalCategoryId(request.getAbnormalCategoryId());
-    record.setAbnormalTypeId(request.getAbnormalTypeId());
-    record.setAbnormalDesc(normalizeText(request.getAbnormalDesc()));
-    record.setSolution(normalizeText(request.getSolution()));
-    record.setIsFixed(request.getIsFixed());
-    record.setFixedAt(request.getFixedAt());
-    record.setRepairMinutes(request.getRepairMinutes());
-    record.setTeamId(request.getTeamId());
-    record.setResponsiblePersonId(request.getResponsiblePersonId());
-    record.store();
-    Long recordId = toLongId(record.getId());
+    String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
+    String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
+    String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
+    String modelName = normalizeRequiredText(request.getModelName(), "机型不能为空");
+    String machineNo = normalizeRequiredText(request.getMachineNo(), "机台号不能为空");
+    String abnormalCategoryName =
+        normalizeRequiredText(request.getAbnormalCategoryName(), "异常类别不能为空");
+    String abnormalTypeName = normalizeRequiredText(request.getAbnormalTypeName(), "异常分类不能为空");
+    String teamName = normalizeRequiredText(request.getTeamName(), "组别不能为空");
+    String responsiblePersonName =
+        normalizeRequiredText(request.getResponsiblePersonName(), "责任人不能为空");
+    List<String> repairPersonNames = normalizeRepairPersonNames(request.getRepairPersonNames());
+    Long recordId =
+        repairRecordRepository.insertRecord(
+            request.getOccurAt(),
+            shift,
+            factoryName,
+            workshopName,
+            lineName,
+            modelName,
+            machineNo,
+            abnormalCategoryName,
+            abnormalTypeName,
+            teamName,
+            responsiblePersonName,
+            normalizeText(request.getAbnormalDesc()),
+            normalizeText(request.getSolution()),
+            request.getIsFixed(),
+            request.getFixedAt(),
+            request.getRepairMinutes());
     if (recordId == null) {
       throw new BusinessException("维修记录创建失败");
     }
-    insertRepairPeople(recordId, request.getRepairPersonIds());
+    repairRecordRepository.insertRepairPeople(recordId, repairPersonNames);
     return recordId;
   }
 
@@ -100,104 +99,65 @@ public class RepairRecordService {
   public void update(Long id, RepairRecordRequest request) {
     String shift = normalizeShift(request.getShift());
     validateRepairState(request.getIsFixed(), request.getFixedAt(), request.getRepairMinutes());
+    String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
+    String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
+    String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
+    String modelName = normalizeRequiredText(request.getModelName(), "机型不能为空");
+    String machineNo = normalizeRequiredText(request.getMachineNo(), "机台号不能为空");
+    String abnormalCategoryName =
+        normalizeRequiredText(request.getAbnormalCategoryName(), "异常类别不能为空");
+    String abnormalTypeName = normalizeRequiredText(request.getAbnormalTypeName(), "异常分类不能为空");
+    String teamName = normalizeRequiredText(request.getTeamName(), "组别不能为空");
+    String responsiblePersonName =
+        normalizeRequiredText(request.getResponsiblePersonName(), "责任人不能为空");
+    List<String> repairPersonNames = normalizeRepairPersonNames(request.getRepairPersonNames());
     int updated =
-        dsl.update(REPAIR_RECORD)
-            .set(REPAIR_RECORD.OCCUR_AT, request.getOccurAt())
-            .set(REPAIR_RECORD.SHIFT, shift)
-            .set(REPAIR_RECORD.FACTORY_ID, request.getFactoryId())
-            .set(REPAIR_RECORD.WORKSHOP_ID, request.getWorkshopId())
-            .set(REPAIR_RECORD.LINE_ID, request.getLineId())
-            .set(REPAIR_RECORD.MODEL_ID, request.getModelId())
-            .set(REPAIR_RECORD.MACHINE_ID, request.getMachineId())
-            .set(REPAIR_RECORD.ABNORMAL_CATEGORY_ID, request.getAbnormalCategoryId())
-            .set(REPAIR_RECORD.ABNORMAL_TYPE_ID, request.getAbnormalTypeId())
-            .set(REPAIR_RECORD.ABNORMAL_DESC, normalizeText(request.getAbnormalDesc()))
-            .set(REPAIR_RECORD.SOLUTION, normalizeText(request.getSolution()))
-            .set(REPAIR_RECORD.IS_FIXED, request.getIsFixed())
-            .set(REPAIR_RECORD.FIXED_AT, request.getFixedAt())
-            .set(REPAIR_RECORD.REPAIR_MINUTES, request.getRepairMinutes())
-            .set(REPAIR_RECORD.TEAM_ID, request.getTeamId())
-            .set(REPAIR_RECORD.RESPONSIBLE_PERSON_ID, request.getResponsiblePersonId())
-            .where(REPAIR_RECORD.ID.eq(id))
-            .execute();
+        repairRecordRepository.updateRecord(
+            id,
+            request.getOccurAt(),
+            shift,
+            factoryName,
+            workshopName,
+            lineName,
+            modelName,
+            machineNo,
+            abnormalCategoryName,
+            abnormalTypeName,
+            teamName,
+            responsiblePersonName,
+            normalizeText(request.getAbnormalDesc()),
+            normalizeText(request.getSolution()),
+            request.getIsFixed(),
+            request.getFixedAt(),
+            request.getRepairMinutes());
     if (updated <= 0) {
       throw new BusinessException("维修记录不存在");
     }
-    dsl.deleteFrom(REPAIR_RECORD_PERSON)
-        .where(REPAIR_RECORD_PERSON.REPAIR_RECORD_ID.eq(id))
-        .execute();
-    insertRepairPeople(id, request.getRepairPersonIds());
+    repairRecordRepository.deleteRepairPeopleByRecordId(id);
+    repairRecordRepository.insertRepairPeople(id, repairPersonNames);
   }
 
   @Transactional(rollbackFor = Throwable.class)
   public void delete(Long id) {
-    dsl.deleteFrom(REPAIR_RECORD_PERSON)
-        .where(REPAIR_RECORD_PERSON.REPAIR_RECORD_ID.eq(id))
-        .execute();
-    int deleted = dsl.deleteFrom(REPAIR_RECORD).where(REPAIR_RECORD.ID.eq(id)).execute();
+    repairRecordRepository.deleteRepairPeopleByRecordId(id);
+    int deleted = repairRecordRepository.deleteRecord(id);
     if (deleted <= 0) {
       throw new BusinessException("维修记录不存在");
     }
   }
 
   private List<RepairRecordViewDto> fetchRecords(Condition condition, PageRequestDto pageRequest) {
-    var select =
-        dsl.select(
-                REPAIR_RECORD.ID,
-                REPAIR_RECORD.OCCUR_AT,
-                REPAIR_RECORD.SHIFT,
-                REPAIR_RECORD.FACTORY_ID,
-                SYS_FACTORY.NAME.as("factory_name"),
-                REPAIR_RECORD.WORKSHOP_ID,
-                SYS_WORKSHOP.NAME.as("workshop_name"),
-                REPAIR_RECORD.LINE_ID,
-                SYS_LINE.NAME.as("line_name"),
-                REPAIR_RECORD.MODEL_ID,
-                SYS_MODEL.NAME.as("model_name"),
-                REPAIR_RECORD.MACHINE_ID,
-                SYS_MACHINE.MACHINE_NO.as("machine_no"),
-                REPAIR_RECORD.ABNORMAL_CATEGORY_ID,
-                SYS_ABNORMAL_CATEGORY.NAME.as("abnormal_category_name"),
-                REPAIR_RECORD.ABNORMAL_TYPE_ID,
-                SYS_ABNORMAL_TYPE.NAME.as("abnormal_type_name"),
-                REPAIR_RECORD.ABNORMAL_DESC,
-                REPAIR_RECORD.SOLUTION,
-                REPAIR_RECORD.IS_FIXED,
-                REPAIR_RECORD.FIXED_AT,
-                REPAIR_RECORD.REPAIR_MINUTES,
-                REPAIR_RECORD.TEAM_ID,
-                SYS_TEAM.NAME.as("team_name"),
-                REPAIR_RECORD.RESPONSIBLE_PERSON_ID,
-                SYS_PERSON.NAME.as("responsible_person_name"))
-            .from(REPAIR_RECORD)
-            .join(SYS_FACTORY)
-            .on(REPAIR_RECORD.FACTORY_ID.eq(SYS_FACTORY.ID))
-            .join(SYS_WORKSHOP)
-            .on(REPAIR_RECORD.WORKSHOP_ID.eq(SYS_WORKSHOP.ID))
-            .join(SYS_LINE)
-            .on(REPAIR_RECORD.LINE_ID.eq(SYS_LINE.ID))
-            .join(SYS_MODEL)
-            .on(REPAIR_RECORD.MODEL_ID.eq(SYS_MODEL.ID))
-            .join(SYS_MACHINE)
-            .on(REPAIR_RECORD.MACHINE_ID.eq(SYS_MACHINE.ID))
-            .join(SYS_ABNORMAL_CATEGORY)
-            .on(REPAIR_RECORD.ABNORMAL_CATEGORY_ID.eq(SYS_ABNORMAL_CATEGORY.ID))
-            .join(SYS_ABNORMAL_TYPE)
-            .on(REPAIR_RECORD.ABNORMAL_TYPE_ID.eq(SYS_ABNORMAL_TYPE.ID))
-            .join(SYS_TEAM)
-            .on(REPAIR_RECORD.TEAM_ID.eq(SYS_TEAM.ID))
-            .join(SYS_PERSON)
-            .on(REPAIR_RECORD.RESPONSIBLE_PERSON_ID.eq(SYS_PERSON.ID))
-            .where(condition);
-
     List<SortField<?>> orderBy = buildSortFields(pageRequest);
-    var ordered = orderBy.isEmpty() ? select : select.orderBy(orderBy);
-    if (pageRequest == null) {
-      return ordered.limit(1).fetchInto(RepairRecordViewDto.class);
+    Integer limit = null;
+    Integer offset = null;
+    if (pageRequest != null) {
+      limit = Math.toIntExact(pageRequest.getSize());
+      offset = Math.toIntExact(pageRequest.getOffset());
     }
-    int limit = Math.toIntExact(pageRequest.getSize());
-    int offset = Math.toIntExact(pageRequest.getOffset());
-    return ordered.limit(limit).offset(offset).fetchInto(RepairRecordViewDto.class);
+    List<RepairRecordViewDto> records =
+        repairRecordRepository.fetchRecords(condition, orderBy, limit, offset);
+    attachRepairPeople(records);
+    return records;
   }
 
   private void attachRepairPeople(List<RepairRecordViewDto> records) {
@@ -205,79 +165,90 @@ public class RepairRecordService {
       return;
     }
     List<Long> recordIds = records.stream().map(RepairRecordViewDto::getId).toList();
-    Map<Long, List<Long>> personMap =
-        dsl.select(REPAIR_RECORD_PERSON.REPAIR_RECORD_ID, REPAIR_RECORD_PERSON.PERSON_ID)
-            .from(REPAIR_RECORD_PERSON)
-            .where(REPAIR_RECORD_PERSON.REPAIR_RECORD_ID.in(recordIds))
-            .fetchGroups(REPAIR_RECORD_PERSON.REPAIR_RECORD_ID, REPAIR_RECORD_PERSON.PERSON_ID);
+    Map<Long, List<String>> personNameMap =
+        repairRecordRepository.fetchRepairPersonNameMap(recordIds);
     for (RepairRecordViewDto record : records) {
-      record.setRepairPersonIds(personMap.getOrDefault(record.getId(), List.of()));
+      record.setRepairPersonNames(personNameMap.getOrDefault(record.getId(), List.of()));
     }
-  }
-
-  private void insertRepairPeople(Long recordId, List<Long> repairPersonIds) {
-    if (repairPersonIds == null || repairPersonIds.isEmpty()) {
-      return;
-    }
-    List<Long> uniquePersonIds = repairPersonIds.stream().distinct().toList();
-    var inserts =
-        uniquePersonIds.stream()
-            .map(
-                personId ->
-                    dsl.insertInto(REPAIR_RECORD_PERSON)
-                        .columns(
-                            REPAIR_RECORD_PERSON.REPAIR_RECORD_ID,
-                            REPAIR_RECORD_PERSON.PERSON_ID)
-                        .values(recordId, personId))
-            .toList();
-    dsl.batch(inserts).execute();
   }
 
   private Condition buildCondition(RepairRecordQueryDto query) {
     if (query == null) {
-      return DSL.trueCondition();
+      return DSL.condition("1=1");
     }
-    Condition condition = DSL.trueCondition();
+    Condition condition = DSL.condition("1=1");
     LocalDateTime occurFrom = query.getOccurFrom();
     LocalDateTime occurTo = query.getOccurTo();
+    LocalDateTime fixedFrom = query.getFixedFrom();
+    LocalDateTime fixedTo = query.getFixedTo();
     if (occurFrom != null) {
       condition = condition.and(REPAIR_RECORD.OCCUR_AT.ge(occurFrom));
     }
     if (occurTo != null) {
       condition = condition.and(REPAIR_RECORD.OCCUR_AT.le(occurTo));
     }
+    if (fixedFrom != null) {
+      condition = condition.and(REPAIR_RECORD.FIXED_AT.ge(fixedFrom));
+    }
+    if (fixedTo != null) {
+      condition = condition.and(REPAIR_RECORD.FIXED_AT.le(fixedTo));
+    }
     if (StringUtils.isNotBlank(query.getShift())) {
       condition = condition.and(REPAIR_RECORD.SHIFT.eq(normalizeShift(query.getShift())));
     }
-    if (query.getFactoryId() != null) {
-      condition = condition.and(REPAIR_RECORD.FACTORY_ID.eq(query.getFactoryId()));
+    String factoryName = normalizeText(query.getFactoryName());
+    if (factoryName != null) {
+      condition = condition.and(REPAIR_RECORD.FACTORY_NAME.eq(factoryName));
     }
-    if (query.getWorkshopId() != null) {
-      condition = condition.and(REPAIR_RECORD.WORKSHOP_ID.eq(query.getWorkshopId()));
+    String workshopName = normalizeText(query.getWorkshopName());
+    if (workshopName != null) {
+      condition = condition.and(REPAIR_RECORD.WORKSHOP_NAME.eq(workshopName));
     }
-    if (query.getLineId() != null) {
-      condition = condition.and(REPAIR_RECORD.LINE_ID.eq(query.getLineId()));
+    String lineName = normalizeText(query.getLineName());
+    if (lineName != null) {
+      condition = condition.and(REPAIR_RECORD.LINE_NAME.eq(lineName));
     }
-    if (query.getModelId() != null) {
-      condition = condition.and(REPAIR_RECORD.MODEL_ID.eq(query.getModelId()));
+    String modelName = normalizeText(query.getModelName());
+    if (modelName != null) {
+      condition = condition.and(REPAIR_RECORD.MODEL_NAME.eq(modelName));
     }
-    if (query.getMachineId() != null) {
-      condition = condition.and(REPAIR_RECORD.MACHINE_ID.eq(query.getMachineId()));
+    String machineNo = normalizeText(query.getMachineNo());
+    if (machineNo != null) {
+      condition = condition.and(REPAIR_RECORD.MACHINE_NO.eq(machineNo));
     }
-    if (query.getAbnormalCategoryId() != null) {
-      condition = condition.and(REPAIR_RECORD.ABNORMAL_CATEGORY_ID.eq(query.getAbnormalCategoryId()));
+    String abnormalCategoryName = normalizeText(query.getAbnormalCategoryName());
+    if (abnormalCategoryName != null) {
+      condition = condition.and(REPAIR_RECORD.ABNORMAL_CATEGORY_NAME.eq(abnormalCategoryName));
     }
-    if (query.getAbnormalTypeId() != null) {
-      condition = condition.and(REPAIR_RECORD.ABNORMAL_TYPE_ID.eq(query.getAbnormalTypeId()));
+    String abnormalTypeName = normalizeText(query.getAbnormalTypeName());
+    if (abnormalTypeName != null) {
+      condition = condition.and(REPAIR_RECORD.ABNORMAL_TYPE_NAME.eq(abnormalTypeName));
     }
     if (query.getIsFixed() != null) {
       condition = condition.and(REPAIR_RECORD.IS_FIXED.eq(query.getIsFixed()));
     }
-    if (query.getTeamId() != null) {
-      condition = condition.and(REPAIR_RECORD.TEAM_ID.eq(query.getTeamId()));
+    String teamName = normalizeText(query.getTeamName());
+    if (teamName != null) {
+      condition = condition.and(REPAIR_RECORD.TEAM_NAME.eq(teamName));
     }
-    if (query.getResponsiblePersonId() != null) {
-      condition = condition.and(REPAIR_RECORD.RESPONSIBLE_PERSON_ID.eq(query.getResponsiblePersonId()));
+    String responsiblePersonName = normalizeText(query.getResponsiblePersonName());
+    if (responsiblePersonName != null) {
+      condition =
+          condition.and(REPAIR_RECORD.RESPONSIBLE_PERSON_NAME.eq(responsiblePersonName));
+    }
+    String repairPersonName = normalizeText(query.getRepairPersonName());
+    if (repairPersonName != null) {
+      condition =
+          condition.and(
+              DSL.exists(
+                  DSL.selectOne()
+                      .from(REPAIR_RECORD_PERSON)
+                      .where(
+                          REPAIR_RECORD_PERSON.REPAIR_RECORD_ID
+                              .cast(Long.class)
+                              .eq(REPAIR_RECORD.ID.cast(Long.class)))
+                      .and(
+                          REPAIR_RECORD_PERSON.PERSON_NAME.eq(repairPersonName))));
     }
     return condition;
   }
@@ -337,24 +308,31 @@ public class RepairRecordService {
     }
   }
 
+  private String normalizeRequiredText(String value, String message) {
+    String normalized = normalizeText(value);
+    if (normalized == null) {
+      throw new BusinessException(message);
+    }
+    return normalized;
+  }
+
+  private List<String> normalizeRepairPersonNames(List<String> personNames) {
+    if (personNames == null || personNames.isEmpty()) {
+      return List.of();
+    }
+    List<String> normalized = new ArrayList<>();
+    for (String name : personNames) {
+      String value = normalizeText(name);
+      if (value == null) {
+        throw new BusinessException("维修人不能为空");
+      }
+      normalized.add(value);
+    }
+    return normalized.stream().distinct().toList();
+  }
+
   private String normalizeText(String value) {
     return StringUtils.trimToNull(value);
   }
 
-  private Long toLongId(Object value) {
-    if (value == null) {
-      return null;
-    }
-    if (value instanceof Long longValue) {
-      return longValue;
-    }
-    if (value instanceof Number number) {
-      return number.longValue();
-    }
-    String text = value.toString();
-    if (text.isBlank()) {
-      return null;
-    }
-    return Long.valueOf(text);
-  }
 }

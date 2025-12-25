@@ -17,19 +17,19 @@ public class RepairRecordRequest {
   @Pattern(regexp = "(?i)DAY|NIGHT", message = "shift must be DAY or NIGHT")
   private String shift;
 
-  @NotNull private Long factoryId;
-  @NotNull private Long workshopId;
-  @NotNull private Long lineId;
-  @NotNull private Long modelId;
-  @NotNull private Long machineId;
-  @NotNull private Long abnormalCategoryId;
-  @NotNull private Long abnormalTypeId;
+  @NotBlank private String factoryName;
+  @NotBlank private String workshopName;
+  @NotBlank private String lineName;
+  @NotBlank private String modelName;
+  @NotBlank private String machineNo;
+  @NotBlank private String abnormalCategoryName;
+  @NotBlank private String abnormalTypeName;
   @NotBlank private String abnormalDesc;
   private String solution;
   @NotNull private Boolean isFixed;
   private LocalDateTime fixedAt;
   @PositiveOrZero private Integer repairMinutes;
-  @NotNull private Long teamId;
-  @NotNull private Long responsiblePersonId;
-  private List<Long> repairPersonIds;
+  @NotBlank private String teamName;
+  @NotBlank private String responsiblePersonName;
+  private List<String> repairPersonNames;
 }

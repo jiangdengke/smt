@@ -42,6 +42,25 @@ public class UserRepository extends UserDao {
         .fetchOneInto(User.class);
   }
 
+  /** 新增用户并返回ID。 */
+  @Transactional
+  public Long insertUser(String username, String password) {
+    ctx().insertInto(USER)
+        .columns(USER.USERNAME, USER.PASSWORD)
+        .values(username, password)
+        .execute();
+    return ctx()
+        .select(USER.ID.cast(Long.class))
+        .from(USER)
+        .where(USER.USERNAME.eq(username))
+        .fetchOne(USER.ID.cast(Long.class));
+  }
+
+  /** 查询全部用户。 */
+  public List<User> fetchAllUsers() {
+    return ctx().selectFrom(USER).orderBy(USER.ID.asc()).fetchInto(User.class);
+  }
+
   /** 根据用户ID查询角色编码列表。 */
   public List<String> fetchRoleCodesByUserId(Long userId) {
     Field<Long> roleId = ROLE.ID.cast(Long.class);
@@ -79,5 +98,23 @@ public class UserRepository extends UserDao {
         .columns(USER_ROLE.USER_ID, USER_ROLE.ROLE_ID)
         .values(userId, roleId)
         .execute();
+  }
+
+  /** 删除用户全部角色绑定。 */
+  @Transactional
+  public void deleteUserRoles(Long userId) {
+    ctx().deleteFrom(USER_ROLE).where(USER_ROLE.USER_ID.eq(userId)).execute();
+  }
+
+  /** 更新用户密码。 */
+  @Transactional
+  public int updatePassword(Long userId, String password) {
+    return ctx().update(USER).set(USER.PASSWORD, password).where(USER.ID.eq(userId)).execute();
+  }
+
+  /** 更新用户名。 */
+  @Transactional
+  public int updateUsername(Long userId, String username) {
+    return ctx().update(USER).set(USER.USERNAME, username).where(USER.ID.eq(userId)).execute();
   }
 }

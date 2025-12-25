@@ -96,7 +96,7 @@ dependencies {
 // 配置 OpenAPI 生成任务（命中运行中的应用 http://localhost:8080/v3/api-docs）
 openApi {
     apiDocsUrl.set("http://localhost:8080/v3/api-docs")
-    outputDir.set(file("${project.buildDir}/openapi"))
+    outputDir.set(layout.buildDirectory.dir("openapi").get().asFile)
     outputFileName.set("openapi.json")
 }
 
@@ -113,6 +113,10 @@ tasks.withType<BootJar> {
 // 使用 JUnit 5
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-Xlint:deprecation")
 }
 
 // 生成测试覆盖率报告
@@ -170,18 +174,12 @@ jooq {
                 inputSchema = "smtBackend"
                 forcedTypes {
                     forcedType {
-                        isJsonConverter = true
-                        includeTypes = "(?i:JSON|JSONB)"
+                        name = "BIGINT"
+                        includeExpression = ".*\\.id"
                     }
                     forcedType {
-                        name = "Boolean" // tinyint(1) -> Boolean
-                        includeExpression = ".*"
-                        includeTypes = "(?i:TINYINT\\(1\\))"
-                    }
-                    forcedType {
-                        name = "OffsetDateTime" // TIMESTAMP -> OffsetDateTime
-                        includeExpression = ".*"
-                        includeTypes = "TIMESTAMP"
+                        name = "LOCALDATETIME"
+                        includeExpression = ".*\\.(create_time|occur_at|fixed_at)$"
                     }
                 }
             }
@@ -193,10 +191,20 @@ jooq {
                 isFluentSetters = true
                 isSpringAnnotations = true
                 isSpringDao = true
+                isJavaTimeTypes = true
             }
             target {
                 packageName = "org.jooq.generated" // 生成代码包名
+                directory = "build/generated-sources/jooq"
             }
         }
     }
+}
+
+tasks.named("compileJava") {
+    dependsOn("jooqCodegen")
+}
+
+tasks.named("compileTestJava") {
+    dependsOn("jooqCodegen")
 }

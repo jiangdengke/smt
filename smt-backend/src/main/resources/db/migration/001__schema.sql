@@ -8,8 +8,7 @@ CREATE TABLE smtBackend.[user]
     [id]          BIGINT       NOT NULL IDENTITY(1,1), -- 主键，自增
     [username]    NVARCHAR(255) NOT NULL UNIQUE, -- 登录名（唯一）
     [create_time] DATETIME2    NOT NULL DEFAULT SYSUTCDATETIME(), -- 创建时间（UTC）
-    [password]    NVARCHAR(255) NOT NULL, -- 密码哈希
-    [enable]      BIT          NOT NULL DEFAULT 1, -- 是否启用
+    [password]    NVARCHAR(255) NOT NULL, -- 密码明文（未加密）
     CONSTRAINT [PK_user] PRIMARY KEY ([id])
 );
 

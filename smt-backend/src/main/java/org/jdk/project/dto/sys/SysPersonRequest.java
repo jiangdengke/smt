@@ -10,6 +10,5 @@ public class SysPersonRequest {
   @NotNull private Long teamId;
   @NotBlank private String name;
   private String employeeNo;
-  private Boolean isActive;
   private String remark;
 }

@@ -10,6 +10,5 @@ public class SysMachineRequest {
   @NotNull private Long modelId;
   @NotBlank private String machineNo;
   private Integer sortOrder;
-  private Boolean isActive;
   private String remark;
 }

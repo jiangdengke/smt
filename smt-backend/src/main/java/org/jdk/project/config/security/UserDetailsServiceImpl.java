@@ -52,7 +52,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     return new org.springframework.security.core.userdetails.User(
         dbUser.getUsername(),
         dbUser.getPassword(),
-        dbUser.getEnable() == null ? true : dbUser.getEnable(),
+        true,
         true,
         true,
         true,

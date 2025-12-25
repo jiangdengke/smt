@@ -23,11 +23,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   /** 业务异常处理。 */
   @ExceptionHandler(value = {BusinessException.class})
   public ResponseEntity<Object> handleBusinessException(BusinessException ex, WebRequest request) {
-    log.error("Business Error Handled  ===> ", ex);
+    log.warn("Business Error Handled  ===> {}", ex.getMessage());
     ErrorResponseException errorResponseException =
         new ErrorResponseException(
-            HttpStatus.INTERNAL_SERVER_ERROR,
-            ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage()),
+            HttpStatus.BAD_REQUEST,
+            ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage()),
             ex.getCause());
     return handleExceptionInternal(
         errorResponseException,

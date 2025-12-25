@@ -13,15 +13,22 @@ public class RepairRecordQueryDto {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private LocalDateTime occurTo;
 
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  private LocalDateTime fixedFrom;
+
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  private LocalDateTime fixedTo;
+
   private String shift;
-  private Long factoryId;
-  private Long workshopId;
-  private Long lineId;
-  private Long modelId;
-  private Long machineId;
-  private Long abnormalCategoryId;
-  private Long abnormalTypeId;
+  private String factoryName;
+  private String workshopName;
+  private String lineName;
+  private String modelName;
+  private String machineNo;
+  private String abnormalCategoryName;
+  private String abnormalTypeName;
   private Boolean isFixed;
-  private Long teamId;
-  private Long responsiblePersonId;
+  private String teamName;
+  private String responsiblePersonName;
+  private String repairPersonName;
 }

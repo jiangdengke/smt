@@ -18,9 +18,8 @@ public class SysMasterController {
   private final SysMasterService sysMasterService;
 
   @GetMapping("/factories")
-  public List<org.jooq.generated.tables.pojos.SysFactory> listFactories(
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listFactories(activeOnly);
+  public List<org.jooq.generated.tables.pojos.SysFactory> listFactories() {
+    return sysMasterService.listFactories();
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -46,9 +45,8 @@ public class SysMasterController {
 
   @GetMapping("/workshops")
   public List<org.jooq.generated.tables.pojos.SysWorkshop> listWorkshops(
-      @RequestParam(required = false) Long factoryId,
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listWorkshops(factoryId, activeOnly);
+      @RequestParam(required = false) Long factoryId) {
+    return sysMasterService.listWorkshops(factoryId);
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -74,9 +72,8 @@ public class SysMasterController {
 
   @GetMapping("/lines")
   public List<org.jooq.generated.tables.pojos.SysLine> listLines(
-      @RequestParam(required = false) Long workshopId,
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listLines(workshopId, activeOnly);
+      @RequestParam(required = false) Long workshopId) {
+    return sysMasterService.listLines(workshopId);
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -101,9 +98,8 @@ public class SysMasterController {
   }
 
   @GetMapping("/models")
-  public List<org.jooq.generated.tables.pojos.SysModel> listModels(
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listModels(activeOnly);
+  public List<org.jooq.generated.tables.pojos.SysModel> listModels() {
+    return sysMasterService.listModels();
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -129,9 +125,8 @@ public class SysMasterController {
 
   @GetMapping("/machines")
   public List<org.jooq.generated.tables.pojos.SysMachine> listMachines(
-      @RequestParam(required = false) Long modelId,
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listMachines(modelId, activeOnly);
+      @RequestParam(required = false) Long modelId) {
+    return sysMasterService.listMachines(modelId);
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -156,9 +151,8 @@ public class SysMasterController {
   }
 
   @GetMapping("/abnormal-categories")
-  public List<org.jooq.generated.tables.pojos.SysAbnormalCategory> listAbnormalCategories(
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listAbnormalCategories(activeOnly);
+  public List<org.jooq.generated.tables.pojos.SysAbnormalCategory> listAbnormalCategories() {
+    return sysMasterService.listAbnormalCategories();
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -185,9 +179,8 @@ public class SysMasterController {
 
   @GetMapping("/abnormal-types")
   public List<org.jooq.generated.tables.pojos.SysAbnormalType> listAbnormalTypes(
-      @RequestParam(required = false) Long abnormalCategoryId,
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listAbnormalTypes(abnormalCategoryId, activeOnly);
+      @RequestParam(required = false) Long abnormalCategoryId) {
+    return sysMasterService.listAbnormalTypes(abnormalCategoryId);
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -213,9 +206,8 @@ public class SysMasterController {
   }
 
   @GetMapping("/teams")
-  public List<org.jooq.generated.tables.pojos.SysTeam> listTeams(
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listTeams(activeOnly);
+  public List<org.jooq.generated.tables.pojos.SysTeam> listTeams() {
+    return sysMasterService.listTeams();
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -241,9 +233,8 @@ public class SysMasterController {
 
   @GetMapping("/people")
   public List<org.jooq.generated.tables.pojos.SysPerson> listPeople(
-      @RequestParam(required = false) Long teamId,
-      @RequestParam(defaultValue = "true") boolean activeOnly) {
-    return sysMasterService.listPeople(teamId, activeOnly);
+      @RequestParam(required = false) Long teamId) {
+    return sysMasterService.listPeople(teamId);
   }
 
   @ResponseStatus(HttpStatus.CREATED)
@@ -266,4 +257,5 @@ public class SysMasterController {
   public void deletePerson(@PathVariable Long id) {
     sysMasterService.deletePerson(id);
   }
+
 }
