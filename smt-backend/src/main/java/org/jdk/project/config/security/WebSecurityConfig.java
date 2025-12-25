@@ -30,7 +30,6 @@ public class WebSecurityConfig {
 
   private final Jwt jwt;
 
-
   /** 认证管理器。 */
   @Bean
   public AuthenticationManager authenticationManager(

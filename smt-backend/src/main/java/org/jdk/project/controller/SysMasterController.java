@@ -59,7 +59,8 @@ public class SysMasterController {
   @ResponseStatus(HttpStatus.OK)
   @PutMapping("/workshops/{id}")
   @PreAuthorize("hasRole('ADMIN')")
-  public void updateWorkshop(@PathVariable Long id, @RequestBody @Valid SysWorkshopRequest request) {
+  public void updateWorkshop(
+      @PathVariable Long id, @RequestBody @Valid SysWorkshopRequest request) {
     sysMasterService.updateWorkshop(id, request);
   }
 
@@ -257,5 +258,4 @@ public class SysMasterController {
   public void deletePerson(@PathVariable Long id) {
     sysMasterService.deletePerson(id);
   }
-
 }

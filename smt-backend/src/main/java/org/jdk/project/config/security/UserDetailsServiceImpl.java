@@ -50,13 +50,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     return new org.springframework.security.core.userdetails.User(
-        dbUser.getUsername(),
-        dbUser.getPassword(),
-        true,
-        true,
-        true,
-        true,
-        authorities);
+        dbUser.getUsername(), dbUser.getPassword(), true, true, true, true, authorities);
   }
 
   private Long toLongId(Object value) {

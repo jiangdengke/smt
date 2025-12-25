@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Table;
-import org.jooq.impl.DSL;
 import org.jooq.generated.tables.pojos.SysAbnormalCategory;
 import org.jooq.generated.tables.pojos.SysAbnormalType;
 import org.jooq.generated.tables.pojos.SysFactory;
@@ -15,6 +14,7 @@ import org.jooq.generated.tables.pojos.SysModel;
 import org.jooq.generated.tables.pojos.SysPerson;
 import org.jooq.generated.tables.pojos.SysTeam;
 import org.jooq.generated.tables.pojos.SysWorkshop;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 /** 系统维护表数据访问。 */
@@ -122,13 +122,11 @@ public class SysMasterRepository {
         .fetchInto(SysPerson.class);
   }
 
-
   public Long insertFactory(String name, String code, int sortOrder, String remark) {
     String sql =
         "insert into smtBackend.sys_factory ([name], [code], [sort_order], [remark]) "
             + "output inserted.id values (?, ?, ?, ?)";
-    return dsl.resultQuery(sql, name, code, sortOrder, remark)
-        .fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, name, code, sortOrder, remark).fetchOne(0, Long.class);
   }
 
   public int updateFactory(Long id, String name, String code, int sortOrder, String remark) {
@@ -149,14 +147,12 @@ public class SysMasterRepository {
     return exists(SYS_WORKSHOP, SYS_WORKSHOP.FACTORY_ID.eq(factoryId));
   }
 
-
   public Long insertWorkshop(
       Long factoryId, String name, String code, int sortOrder, String remark) {
     String sql =
         "insert into smtBackend.sys_workshop ([factory_id], [name], [code], [sort_order], "
             + "[remark]) output inserted.id values (?, ?, ?, ?, ?)";
-    return dsl.resultQuery(sql, factoryId, name, code, sortOrder, remark)
-        .fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, factoryId, name, code, sortOrder, remark).fetchOne(0, Long.class);
   }
 
   public int updateWorkshop(
@@ -179,14 +175,11 @@ public class SysMasterRepository {
     return exists(SYS_LINE, SYS_LINE.WORKSHOP_ID.eq(workshopId));
   }
 
-
-  public Long insertLine(
-      Long workshopId, String name, String code, int sortOrder, String remark) {
+  public Long insertLine(Long workshopId, String name, String code, int sortOrder, String remark) {
     String sql =
         "insert into smtBackend.sys_line ([workshop_id], [name], [code], [sort_order], "
             + "[remark]) output inserted.id values (?, ?, ?, ?, ?)";
-    return dsl.resultQuery(sql, workshopId, name, code, sortOrder, remark)
-        .fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, workshopId, name, code, sortOrder, remark).fetchOne(0, Long.class);
   }
 
   public int updateLine(
@@ -204,7 +197,6 @@ public class SysMasterRepository {
   public int deleteLine(Long id) {
     return dsl.deleteFrom(SYS_LINE).where(SYS_LINE.ID.eq(id)).execute();
   }
-
 
   public Long insertModel(String name, String code, int sortOrder, String remark) {
     String sql =
@@ -231,18 +223,14 @@ public class SysMasterRepository {
     return exists(SYS_MACHINE, SYS_MACHINE.MODEL_ID.eq(modelId));
   }
 
-
-  public Long insertMachine(
-      Long modelId, String machineNo, int sortOrder, String remark) {
+  public Long insertMachine(Long modelId, String machineNo, int sortOrder, String remark) {
     String sql =
         "insert into smtBackend.sys_machine ([model_id], [machine_no], [sort_order], "
             + "[remark]) output inserted.id values (?, ?, ?, ?)";
-    return dsl.resultQuery(sql, modelId, machineNo, sortOrder, remark)
-        .fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, modelId, machineNo, sortOrder, remark).fetchOne(0, Long.class);
   }
 
-  public int updateMachine(
-      Long id, Long modelId, String machineNo, int sortOrder, String remark) {
+  public int updateMachine(Long id, Long modelId, String machineNo, int sortOrder, String remark) {
     return dsl.update(SYS_MACHINE)
         .set(SYS_MACHINE.MODEL_ID, modelId)
         .set(SYS_MACHINE.MACHINE_NO, machineNo)
@@ -256,13 +244,11 @@ public class SysMasterRepository {
     return dsl.deleteFrom(SYS_MACHINE).where(SYS_MACHINE.ID.eq(id)).execute();
   }
 
-
   public Long insertAbnormalCategory(String name, String code, int sortOrder, String remark) {
     String sql =
         "insert into smtBackend.sys_abnormal_category ([name], [code], [sort_order], [remark]) "
             + "output inserted.id values (?, ?, ?, ?)";
-    return dsl.resultQuery(sql, name, code, sortOrder, remark)
-        .fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, name, code, sortOrder, remark).fetchOne(0, Long.class);
   }
 
   public int updateAbnormalCategory(
@@ -277,22 +263,15 @@ public class SysMasterRepository {
   }
 
   public int deleteAbnormalCategory(Long id) {
-    return dsl.deleteFrom(SYS_ABNORMAL_CATEGORY)
-        .where(SYS_ABNORMAL_CATEGORY.ID.eq(id))
-        .execute();
+    return dsl.deleteFrom(SYS_ABNORMAL_CATEGORY).where(SYS_ABNORMAL_CATEGORY.ID.eq(id)).execute();
   }
 
   public boolean existsAbnormalTypeByCategory(Long abnormalCategoryId) {
     return exists(SYS_ABNORMAL_TYPE, SYS_ABNORMAL_TYPE.ABNORMAL_CATEGORY_ID.eq(abnormalCategoryId));
   }
 
-
   public Long insertAbnormalType(
-      Long abnormalCategoryId,
-      String name,
-      String code,
-      int sortOrder,
-      String remark) {
+      Long abnormalCategoryId, String name, String code, int sortOrder, String remark) {
     String sql =
         "insert into smtBackend.sys_abnormal_type ([abnormal_category_id], [name], [code], "
             + "[sort_order], [remark]) output inserted.id values (?, ?, ?, ?, ?)";
@@ -301,12 +280,7 @@ public class SysMasterRepository {
   }
 
   public int updateAbnormalType(
-      Long id,
-      Long abnormalCategoryId,
-      String name,
-      String code,
-      int sortOrder,
-      String remark) {
+      Long id, Long abnormalCategoryId, String name, String code, int sortOrder, String remark) {
     return dsl.update(SYS_ABNORMAL_TYPE)
         .set(SYS_ABNORMAL_TYPE.ABNORMAL_CATEGORY_ID, abnormalCategoryId)
         .set(SYS_ABNORMAL_TYPE.NAME, name)
@@ -320,7 +294,6 @@ public class SysMasterRepository {
   public int deleteAbnormalType(Long id) {
     return dsl.deleteFrom(SYS_ABNORMAL_TYPE).where(SYS_ABNORMAL_TYPE.ID.eq(id)).execute();
   }
-
 
   public Long insertTeam(String name, String code, int sortOrder, String remark) {
     String sql =
@@ -347,18 +320,14 @@ public class SysMasterRepository {
     return exists(SYS_PERSON, SYS_PERSON.TEAM_ID.eq(teamId));
   }
 
-
-  public Long insertPerson(
-      Long teamId, String name, String employeeNo, String remark) {
+  public Long insertPerson(Long teamId, String name, String employeeNo, String remark) {
     String sql =
         "insert into smtBackend.sys_person ([team_id], [name], [employee_no], [remark]) "
             + "output inserted.id values (?, ?, ?, ?)";
-    return dsl.resultQuery(sql, teamId, name, employeeNo, remark)
-        .fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, teamId, name, employeeNo, remark).fetchOne(0, Long.class);
   }
 
-  public int updatePerson(
-      Long id, Long teamId, String name, String employeeNo, String remark) {
+  public int updatePerson(Long id, Long teamId, String name, String employeeNo, String remark) {
     return dsl.update(SYS_PERSON)
         .set(SYS_PERSON.TEAM_ID, teamId)
         .set(SYS_PERSON.NAME, name)
@@ -371,8 +340,6 @@ public class SysMasterRepository {
   public int deletePerson(Long id) {
     return dsl.deleteFrom(SYS_PERSON).where(SYS_PERSON.ID.eq(id)).execute();
   }
-
-
 
   private Long fetchIdentity() {
     return dsl.select(DSL.field("cast(scope_identity() as bigint)", Long.class))

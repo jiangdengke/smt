@@ -3,19 +3,19 @@ package org.jdk.project.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.security.Principal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jdk.project.config.security.Jwt;
 import org.jdk.project.dto.sign.SignInDto;
+import org.jdk.project.dto.sign.SignMeDto;
+import org.jdk.project.dto.user.UserPasswordRequest;
+import org.jdk.project.repository.UserRepository;
 import org.jdk.project.service.SignService;
+import org.jdk.project.service.UserAdminService;
+import org.jooq.generated.tables.pojos.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.jdk.project.repository.UserRepository;
-import org.jooq.generated.tables.pojos.User;
-import java.security.Principal;
-import org.jdk.project.dto.sign.SignMeDto;
-import java.util.List;
-import org.jdk.project.dto.user.UserPasswordRequest;
-import org.jdk.project.service.UserAdminService;
 
 /** 认证接口：登录、登出。 */
 @RestController
@@ -59,9 +59,7 @@ public class SignController {
     jwt.removeToken(request, response);
   }
 
-  /**
-   * 获取当前登录用户的基础信息（包含角色与权限）。
-   */
+  /** 获取当前登录用户的基础信息（包含角色与权限）。 */
   @ResponseStatus(HttpStatus.OK)
   @GetMapping("/me")
   public SignMeDto me(Principal principal) {
@@ -122,5 +120,4 @@ public class SignController {
       return null;
     }
   }
-
 }

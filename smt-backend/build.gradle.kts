@@ -73,7 +73,8 @@ dependencies {
     implementation("org.jooq:jooq-meta:$jooqVersion")
     // JWT
     implementation("com.auth0:java-jwt:4.4.0")
-
+    // EasyExcel
+    implementation("com.alibaba:easyexcel:4.0.3")
 
     // 运行时依赖
     runtimeOnly("com.microsoft.sqlserver:mssql-jdbc:12.6.1.jre11")
@@ -96,7 +97,12 @@ dependencies {
 // 配置 OpenAPI 生成任务（命中运行中的应用 http://localhost:8080/v3/api-docs）
 openApi {
     apiDocsUrl.set("http://localhost:8080/v3/api-docs")
-    outputDir.set(layout.buildDirectory.dir("openapi").get().asFile)
+    outputDir.set(
+        layout.buildDirectory
+            .dir("openapi")
+            .get()
+            .asFile,
+    )
     outputFileName.set("openapi.json")
 }
 
@@ -148,6 +154,7 @@ spotless {
         // Google Java 格式
         googleJavaFormat("1.28.0").reflowLongStrings()
         formatAnnotations()
+        targetExclude("build/**")
     }
 
     kotlinGradle {
@@ -206,5 +213,9 @@ tasks.named("compileJava") {
 }
 
 tasks.named("compileTestJava") {
+    dependsOn("jooqCodegen")
+}
+
+tasks.named("spotlessJava") {
     dependsOn("jooqCodegen")
 }

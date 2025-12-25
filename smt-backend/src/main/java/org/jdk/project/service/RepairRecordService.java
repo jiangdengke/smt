@@ -2,12 +2,18 @@ package org.jdk.project.service;
 
 import static org.jdk.project.utils.StringCaseUtils.convertCamelCaseToSnake;
 
+import com.alibaba.excel.EasyExcel;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jdk.project.dto.PageRequestDto;
 import org.jdk.project.dto.PageResponseDto;
+import org.jdk.project.dto.repair.RepairRecordExportDto;
 import org.jdk.project.dto.repair.RepairRecordQueryDto;
 import org.jdk.project.dto.repair.RepairRecordRequest;
 import org.jdk.project.dto.repair.RepairRecordViewDto;
@@ -17,9 +23,9 @@ import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.SortField;
 import org.jooq.SortOrder;
-import org.jooq.impl.DSL;
 import org.jooq.generated.tables.RepairRecord;
 import org.jooq.generated.tables.RepairRecordPerson;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +39,52 @@ public class RepairRecordService {
       RepairRecordPerson.REPAIR_RECORD_PERSON;
 
   private final RepairRecordRepository repairRecordRepository;
+
+  public void export(HttpServletResponse response, RepairRecordQueryDto query) throws IOException {
+    Condition condition = buildCondition(query);
+    // Fetch all records without pagination
+    List<RepairRecordViewDto> records =
+        repairRecordRepository.fetchRecords(
+            condition, List.of(REPAIR_RECORD.OCCUR_AT.desc()), null, null);
+    attachRepairPeople(records);
+
+    List<RepairRecordExportDto> exportData =
+        records.stream().map(this::convertToExportDto).toList();
+
+    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    response.setCharacterEncoding("utf-8");
+    String fileName =
+        URLEncoder.encode("维修记录_" + LocalDateTime.now().toString(), StandardCharsets.UTF_8)
+            .replaceAll("\\+", "%20");
+    response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+
+    EasyExcel.write(response.getOutputStream(), RepairRecordExportDto.class)
+        .sheet("维修记录")
+        .doWrite(exportData);
+  }
+
+  private RepairRecordExportDto convertToExportDto(RepairRecordViewDto dto) {
+    RepairRecordExportDto export = new RepairRecordExportDto();
+    export.setOccurAt(dto.getOccurAt());
+    export.setShift("DAY".equals(dto.getShift()) ? "白班" : "夜班");
+    export.setFactoryName(dto.getFactoryName());
+    export.setWorkshopName(dto.getWorkshopName());
+    export.setLineName(dto.getLineName());
+    export.setModelName(dto.getModelName());
+    export.setMachineNo(dto.getMachineNo());
+    export.setAbnormalCategoryName(dto.getAbnormalCategoryName());
+    export.setAbnormalTypeName(dto.getAbnormalTypeName());
+    export.setAbnormalDesc(dto.getAbnormalDesc());
+    export.setSolution(dto.getSolution());
+    export.setIsFixed(Boolean.TRUE.equals(dto.getIsFixed()) ? "是" : "否");
+    export.setFixedAt(dto.getFixedAt());
+    export.setRepairMinutes(dto.getRepairMinutes());
+    export.setTeamName(dto.getTeamName());
+    export.setResponsiblePersonName(dto.getResponsiblePersonName());
+    export.setRepairPersonNames(
+        dto.getRepairPersonNames() != null ? String.join("、", dto.getRepairPersonNames()) : "");
+    return export;
+  }
 
   public PageResponseDto<List<RepairRecordViewDto>> list(
       RepairRecordQueryDto query, PageRequestDto pageRequest) {
@@ -233,8 +285,7 @@ public class RepairRecordService {
     }
     String responsiblePersonName = normalizeText(query.getResponsiblePersonName());
     if (responsiblePersonName != null) {
-      condition =
-          condition.and(REPAIR_RECORD.RESPONSIBLE_PERSON_NAME.eq(responsiblePersonName));
+      condition = condition.and(REPAIR_RECORD.RESPONSIBLE_PERSON_NAME.eq(responsiblePersonName));
     }
     String repairPersonName = normalizeText(query.getRepairPersonName());
     if (repairPersonName != null) {
@@ -244,17 +295,19 @@ public class RepairRecordService {
                   DSL.selectOne()
                       .from(REPAIR_RECORD_PERSON)
                       .where(
-                          REPAIR_RECORD_PERSON.REPAIR_RECORD_ID
+                          REPAIR_RECORD_PERSON
+                              .REPAIR_RECORD_ID
                               .cast(Long.class)
                               .eq(REPAIR_RECORD.ID.cast(Long.class)))
-                      .and(
-                          REPAIR_RECORD_PERSON.PERSON_NAME.eq(repairPersonName))));
+                      .and(REPAIR_RECORD_PERSON.PERSON_NAME.eq(repairPersonName))));
     }
     return condition;
   }
 
   private List<SortField<?>> buildSortFields(PageRequestDto pageRequest) {
-    if (pageRequest == null || pageRequest.getSortBy() == null || pageRequest.getSortBy().isEmpty()) {
+    if (pageRequest == null
+        || pageRequest.getSortBy() == null
+        || pageRequest.getSortBy().isEmpty()) {
       return List.of(REPAIR_RECORD.ID.desc());
     }
     List<SortField<?>> sortFields = new ArrayList<>();
@@ -334,5 +387,4 @@ public class RepairRecordService {
   private String normalizeText(String value) {
     return StringUtils.trimToNull(value);
   }
-
 }

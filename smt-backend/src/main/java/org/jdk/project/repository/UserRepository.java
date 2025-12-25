@@ -36,16 +36,14 @@ public class UserRepository extends UserDao {
 
   /** 根据用户名查询用户。 */
   public User fetchOneByUsername(String username) {
-    return ctx()
-        .selectFrom(USER)
-        .where(USER.USERNAME.eq(username))
-        .fetchOneInto(User.class);
+    return ctx().selectFrom(USER).where(USER.USERNAME.eq(username)).fetchOneInto(User.class);
   }
 
   /** 新增用户并返回ID。 */
   @Transactional
   public Long insertUser(String username, String password) {
-    ctx().insertInto(USER)
+    ctx()
+        .insertInto(USER)
         .columns(USER.USERNAME, USER.PASSWORD)
         .values(username, password)
         .execute();
@@ -64,7 +62,8 @@ public class UserRepository extends UserDao {
   /** 根据用户ID查询角色编码列表。 */
   public List<String> fetchRoleCodesByUserId(Long userId) {
     Field<Long> roleId = ROLE.ID.cast(Long.class);
-    return ctx().select(ROLE.CODE)
+    return ctx()
+        .select(ROLE.CODE)
         .from(USER_ROLE)
         .join(ROLE)
         .on(USER_ROLE.ROLE_ID.eq(roleId))
@@ -75,7 +74,8 @@ public class UserRepository extends UserDao {
   /** 根据用户ID查询权限编码列表。 */
   public List<String> fetchPermissionCodesByUserId(Long userId) {
     Field<Long> permissionId = PERMISSION.ID.cast(Long.class);
-    return ctx().selectDistinct(PERMISSION.CODE)
+    return ctx()
+        .selectDistinct(PERMISSION.CODE)
         .from(USER_ROLE)
         .join(ROLE_PERMISSION)
         .on(USER_ROLE.ROLE_ID.eq(ROLE_PERMISSION.ROLE_ID))
@@ -94,7 +94,8 @@ public class UserRepository extends UserDao {
   /** 绑定用户与角色。 */
   @Transactional
   public void insertUserRole(Long userId, Long roleId) {
-    ctx().insertInto(USER_ROLE)
+    ctx()
+        .insertInto(USER_ROLE)
         .columns(USER_ROLE.USER_ID, USER_ROLE.ROLE_ID)
         .values(userId, roleId)
         .execute();

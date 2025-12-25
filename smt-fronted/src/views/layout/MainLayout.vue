@@ -3,14 +3,16 @@ import { ref, computed, h } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useMessage, NIcon } from 'naive-ui'
-import { updatePassword } from '../../api/auth'
 import {
   BuildOutlined,
   ComputerOutlined,
   BarChartOutlined,
   AssessmentOutlined,
   ManageAccountsOutlined,
-  SettingsOutlined
+  SettingsOutlined,
+  Inventory2Outlined,
+  SummarizeOutlined,
+  AutoAwesomeOutlined
 } from '@vicons/material'
 
 const router = useRouter()
@@ -19,8 +21,6 @@ const authStore = useAuthStore()
 const message = useMessage()
 
 const sidebarCollapsed = ref(false)
-const passwordOpen = ref(false)
-const passwordForm = ref({ newPassword: '' })
 
 // 系统标题
 const systemTitle = computed(() => {
@@ -81,6 +81,21 @@ const menuOptions = computed(() => {
         }
       ]
     })
+    options.push({
+      label: '备品管理',
+      key: 'SpareParts',
+      icon: renderIcon(Inventory2Outlined)
+    })
+    options.push({
+      label: '每日报表',
+      key: 'RepairDailyReport',
+      icon: renderIcon(SummarizeOutlined)
+    })
+    options.push({
+      label: 'AI模块',
+      key: 'AiModule',
+      icon: renderIcon(AutoAwesomeOutlined)
+    })
   }
 
   return options
@@ -99,24 +114,6 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
-const openPassword = () => {
-  passwordForm.value.newPassword = ''
-  passwordOpen.value = true
-}
-
-const submitPassword = async () => {
-  if (!passwordForm.value.newPassword) {
-    message.warning('请输入新密码')
-    return
-  }
-  try {
-    await updatePassword(passwordForm.value)
-    message.success('密码已更新')
-    passwordOpen.value = false
-  } catch (error) {
-    message.error(error.message || '密码修改失败')
-  }
-}
 </script>
 
 <template>
@@ -128,7 +125,6 @@ const submitPassword = async () => {
       </div>
       <div style="display: flex; gap: 12px; align-items: center;">
          <span>{{ authStore.currentUser.name }}</span>
-         <n-button size="small" @click="openPassword">修改密码</n-button>
          <n-button size="small" type="error" ghost @click="handleLogout">退出</n-button>
       </div>
     </n-layout-header>
@@ -160,18 +156,4 @@ const submitPassword = async () => {
     </n-layout>
   </n-layout>
 
-  <!-- 修改密码模态框 -->
-  <n-modal v-model:show="passwordOpen" preset="card" title="修改密码" style="width: 400px">
-    <n-form>
-      <n-form-item label="新密码" required>
-        <n-input v-model:value="passwordForm.newPassword" type="password" placeholder="请输入新密码" show-password-on="click" />
-      </n-form-item>
-    </n-form>
-    <template #footer>
-      <div style="display: flex; justify-content: flex-end; gap: 12px">
-        <n-button @click="passwordOpen = false">取消</n-button>
-        <n-button type="primary" @click="submitPassword">保存</n-button>
-      </div>
-    </template>
-  </n-modal>
 </template>

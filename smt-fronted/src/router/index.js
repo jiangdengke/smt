@@ -25,6 +25,24 @@ const routes = [
         meta: { permission: 'repair:read' }
       },
       {
+        path: 'spare-parts',
+        name: 'SpareParts',
+        component: () => import('../views/NotImplementedView.vue'),
+        meta: { permission: 'repair:read' }
+      },
+      {
+        path: 'repair-report',
+        name: 'RepairDailyReport',
+        component: () => import('../views/NotImplementedView.vue'),
+        meta: { permission: 'repair:read' }
+      },
+      {
+        path: 'ai-module',
+        name: 'AiModule',
+        component: () => import('../views/NotImplementedView.vue'),
+        meta: { permission: 'repair:read' }
+      },
+      {
         path: 'report',
         name: 'Report',
         component: () => import('../views/report/DailyReportView.vue'),

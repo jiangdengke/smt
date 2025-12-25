@@ -25,7 +25,8 @@ public class UserAdminService {
     List<UserViewDto> dtos = new ArrayList<>(users.size());
     for (User user : users) {
       Long userId = toLongId(user.getId());
-      List<String> roles = userId == null ? List.of() : userRepository.fetchRoleCodesByUserId(userId);
+      List<String> roles =
+          userId == null ? List.of() : userRepository.fetchRoleCodesByUserId(userId);
       String roleCode = roles.isEmpty() ? null : roles.get(0);
       UserViewDto dto = new UserViewDto();
       dto.setId(userId);

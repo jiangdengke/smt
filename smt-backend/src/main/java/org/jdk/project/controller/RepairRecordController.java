@@ -1,6 +1,8 @@
 package org.jdk.project.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jdk.project.dto.PageRequestDto;
@@ -19,6 +21,11 @@ import org.springframework.web.bind.annotation.*;
 public class RepairRecordController {
 
   private final RepairRecordService repairRecordService;
+
+  @GetMapping("/export")
+  public void export(HttpServletResponse response, RepairRecordQueryDto query) throws IOException {
+    repairRecordService.export(response, query);
+  }
 
   @ResponseStatus(HttpStatus.CREATED)
   @PostMapping

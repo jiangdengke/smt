@@ -13,8 +13,7 @@ import lombok.Data;
 public class RepairRecordRequest {
   @NotNull private LocalDateTime occurAt;
 
-  @NotBlank
-  @Pattern(regexp = "(?i)DAY|NIGHT", message = "shift must be DAY or NIGHT")
+  @NotBlank @Pattern(regexp = "(?i)DAY|NIGHT", message = "shift must be DAY or NIGHT")
   private String shift;
 
   @NotBlank private String factoryName;

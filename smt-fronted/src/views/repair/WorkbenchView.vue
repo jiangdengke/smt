@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, h, watch } from 'vue'
-import { useMessage, NButton, NTag } from 'naive-ui'
+import { useMessage, NButton, NTag, NPopconfirm } from 'naive-ui'
 import { useMasterDataStore } from '../../stores/masterData'
 import { useAuthStore } from '../../stores/auth'
-import { getRepairRecords, createRepairRecord } from '../../api/repair'
+import { getRepairRecords, createRepairRecord, updateRepairRecord, deleteRepairRecord, exportRepairRecords } from '../../api/repair'
 import { formatDate, formatShift, toDateTime, normalizeText } from '../../utils/format'
 
 const message = useMessage()
@@ -38,6 +38,7 @@ const filterForm = ref({
   machineId: null,
   abnormalCategoryId: null,
   abnormalTypeId: null,
+  teamId: null,
   responsiblePersonId: null,
   repairPersonId: null
 })
@@ -45,6 +46,22 @@ const filterForm = ref({
 // New Record Modal State
 const newRecordOpen = ref(false)
 const newRecordForm = ref(createEmptyRecord())
+const formRef = ref(null)
+
+const rules = {
+  occurAt: { required: true, message: '请选择发生时间', trigger: ['blur', 'change'] },
+  shift: { required: true, message: '请选择班次', trigger: ['blur', 'change'] },
+  factoryId: { required: true, type: 'number', message: '请选择厂区', trigger: ['blur', 'change'] },
+  workshopId: { required: true, type: 'number', message: '请选择车间', trigger: ['blur', 'change'] },
+  lineId: { required: true, type: 'number', message: '请选择线别', trigger: ['blur', 'change'] },
+  modelId: { required: true, type: 'number', message: '请选择机型', trigger: ['blur', 'change'] },
+  machineId: { required: true, type: 'number', message: '请选择机台号', trigger: ['blur', 'change'] },
+  abnormalCategoryId: { required: true, type: 'number', message: '请选择异常类别', trigger: ['blur', 'change'] },
+  abnormalTypeId: { required: true, type: 'number', message: '请选择异常分类', trigger: ['blur', 'change'] },
+  abnormalDesc: { required: true, message: '请输入异常描述', trigger: ['blur', 'input'] },
+  teamId: { required: true, type: 'number', message: '请选择组别', trigger: ['blur', 'change'] },
+  responsiblePersonId: { required: true, type: 'number', message: '请选择责任人', trigger: ['blur', 'change'] }
+}
 
 // Computed Options (Cascading)
 const filterWorkshops = computed(() => 
@@ -95,8 +112,27 @@ const newAvailablePeople = computed(() =>
     : []
 )
 
+// Helpers for Reverse Lookup (Name -> ID)
+const getIdByName = (list, name) => {
+  if (!name || !list) return null
+  const item = list.find(i => i.name === name)
+  return item ? item.id : null
+}
+
+const getIdByMachineNo = (list, no) => {
+  if (!no || !list) return null
+  const item = list.find(i => i.machineNo === no)
+  return item ? item.id : null
+}
+
+const getIdsByNames = (list, names) => {
+  if (!names || !list) return []
+  return names.map(name => getIdByName(list, name)).filter(id => id !== null)
+}
+
 function createEmptyRecord() {
   return {
+    id: null,
     occurAt: null,
     shift: 'DAY',
     factoryId: null,
@@ -119,7 +155,6 @@ function createEmptyRecord() {
 
 // Table Columns
 const columns = [
-  { title: 'ID', key: 'id', width: 60 },
   {
     title: '时间/班次',
     key: 'occurAt',
@@ -177,11 +212,31 @@ const columns = [
     title: '操作',
     key: 'actions',
     render(row) {
-      return h(
-        NButton,
-        { size: 'small', onClick: () => message.info('详情功能暂未实现') },
-        { default: () => '详情' }
-      )
+      return h('div', { style: 'display: flex; gap: 8px;' }, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            onClick: () => handleEdit(row)
+          },
+          { default: () => '编辑' }
+        ),
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => handleDelete(row)
+          },
+          {
+            trigger: () => h(
+              NButton,
+              { size: 'small', type: 'error' },
+              { default: () => '删除' }
+            ),
+            default: () => '确认删除该维修记录吗？'
+          }
+        )
+      ])
     }
   }
 ]
@@ -205,6 +260,7 @@ const loadRecords = async (page = 1) => {
       machineNo: getNameById(masterStore.machines, filterForm.value.machineId, 'machineNo'),
       abnormalCategoryName: getNameById(masterStore.abnormalCategories, filterForm.value.abnormalCategoryId),
       abnormalTypeName: getNameById(masterStore.abnormalTypes, filterForm.value.abnormalTypeId),
+      teamName: getNameById(masterStore.teams, filterForm.value.teamId),
       responsiblePersonName: getNameById(masterStore.people, filterForm.value.responsiblePersonId),
       repairPersonName: getNameById(masterStore.people, filterForm.value.repairPersonId)
     }
@@ -218,13 +274,103 @@ const loadRecords = async (page = 1) => {
   }
 }
 
+const resetFilter = () => {
+  filterForm.value = {
+    occurDate: null,
+    fixedDate: null,
+    shift: null,
+    factoryId: null,
+    workshopId: null,
+    lineId: null,
+    modelId: null,
+    machineId: null,
+    abnormalCategoryId: null,
+    abnormalTypeId: null,
+    teamId: null,
+    responsiblePersonId: null,
+    repairPersonId: null
+  }
+  loadRecords(1)
+}
+
 const openNewRecord = () => {
   newRecordForm.value = createEmptyRecord()
   newRecordOpen.value = true
 }
 
+const handleEdit = (row) => {
+  const form = createEmptyRecord()
+  form.id = row.id
+  form.occurAt = formatDate(row.occurAt, 'yyyy-MM-dd') // DatePicker expects format
+  form.shift = row.shift
+  
+  // Reverse lookup for Cascading IDs
+  form.factoryId = getIdByName(masterStore.factories, row.factoryName)
+  form.workshopId = getIdByName(masterStore.workshops, row.workshopName)
+  form.lineId = getIdByName(masterStore.lines, row.lineName)
+  form.modelId = getIdByName(masterStore.models, row.modelName)
+  form.machineId = getIdByMachineNo(masterStore.machines, row.machineNo)
+  
+  form.abnormalCategoryId = getIdByName(masterStore.abnormalCategories, row.abnormalCategoryName)
+  form.abnormalTypeId = getIdByName(masterStore.abnormalTypes, row.abnormalTypeName)
+  
+  form.teamId = getIdByName(masterStore.teams, row.teamName)
+  form.responsiblePersonId = getIdByName(masterStore.people, row.responsiblePersonName)
+  form.repairPersonIds = getIdsByNames(masterStore.people, row.repairPersonNames)
+  
+  form.abnormalDesc = row.abnormalDesc
+  form.solution = row.solution
+  form.isFixed = row.isFixed
+  form.fixedAt = row.fixedAt ? formatDate(row.fixedAt, 'yyyy-MM-dd') : null
+  form.repairMinutes = row.repairMinutes || 0
+
+  newRecordForm.value = form
+  newRecordOpen.value = true
+}
+
+const handleExport = async () => {
+  try {
+    message.loading('正在导出...')
+    const query = {
+      occurFrom: toDateTime(filterForm.value.occurDate),
+      occurTo: toDateTime(filterForm.value.occurDate, true),
+      fixedFrom: toDateTime(filterForm.value.fixedDate),
+      fixedTo: toDateTime(filterForm.value.fixedDate, true),
+      shift: filterForm.value.shift,
+      factoryName: getNameById(masterStore.factories, filterForm.value.factoryId),
+      workshopName: getNameById(masterStore.workshops, filterForm.value.workshopId),
+      lineName: getNameById(masterStore.lines, filterForm.value.lineId),
+      modelName: getNameById(masterStore.models, filterForm.value.modelId),
+      machineNo: getNameById(masterStore.machines, filterForm.value.machineId, 'machineNo'),
+      abnormalCategoryName: getNameById(masterStore.abnormalCategories, filterForm.value.abnormalCategoryId),
+      abnormalTypeName: getNameById(masterStore.abnormalTypes, filterForm.value.abnormalTypeId),
+      responsiblePersonName: getNameById(masterStore.people, filterForm.value.responsiblePersonId),
+      repairPersonName: getNameById(masterStore.people, filterForm.value.repairPersonId),
+      teamName: getNameById(masterStore.teams, filterForm.value.teamId) // Ensure team is included if filtered
+    }
+    // Note: The UI for teamId filtering was missing in the grid. I should check if it needs to be added or if user meant the 'responsiblePersonId' implies team context.
+    // The previous prompt said "导出某组的数据". Currently I don't see a Team selector in the filter grid, only in the create modal.
+    // I should add a Team selector to the filter grid to support "导出某组".
+    await exportRepairRecords(query)
+    message.success('导出成功')
+  } catch (err) {
+    message.error(err.message || '导出失败')
+  }
+}
+
+const handleDelete = async (row) => {
+  try {
+    await deleteRepairRecord(row.id)
+    message.success('删除成功')
+    loadRecords()
+  } catch (err) {
+    message.error(err.message || '删除失败')
+  }
+}
+
 const submitNewRecord = async () => {
   try {
+    await formRef.value?.validate()
     const f = newRecordForm.value
     const payload = {
       occurAt: toDateTime(f.occurAt),
@@ -245,12 +391,24 @@ const submitNewRecord = async () => {
       isFixed: f.isFixed,
       repairMinutes: f.isFixed ? f.repairMinutes : null
     }
-    await createRepairRecord(payload)
-    message.success('保存成功')
+    
+    if (f.id) {
+      await updateRepairRecord(f.id, payload)
+      message.success('更新成功')
+    } else {
+      await createRepairRecord(payload)
+      message.success('创建成功')
+    }
+
     newRecordOpen.value = false
     loadRecords()
   } catch (err) {
-    message.error(err.message || '保存失败')
+    if (Array.isArray(err)) {
+      // Validation errors
+      message.warning('请检查必填项')
+    } else {
+      message.error(err.message || '保存失败')
+    }
   }
 }
 
@@ -311,13 +469,18 @@ onMounted(async () => {
           <n-select v-model:value="filterForm.abnormalTypeId" clearable placeholder="异常分类" label-field="name" value-field="id" :options="filterAbnormalTypes" />
         </n-grid-item>
         <n-grid-item>
+          <n-select v-model:value="filterForm.teamId" clearable placeholder="维修组别" label-field="name" value-field="id" :options="masterStore.teams" />
+        </n-grid-item>
+        <n-grid-item>
           <n-select v-model:value="filterForm.responsiblePersonId" clearable placeholder="责任人" label-field="name" value-field="id" :options="masterStore.people" />
         </n-grid-item>
         <n-grid-item>
           <n-select v-model:value="filterForm.repairPersonId" clearable placeholder="维修人" label-field="name" value-field="id" :options="masterStore.people" />
         </n-grid-item>
       </n-grid>
-      <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+      <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 12px;">
+        <n-button @click="resetFilter">重置</n-button>
+        <n-button @click="handleExport">导出</n-button>
         <n-button type="primary" @click="openNewRecord">新增记录</n-button>
       </div>
     </n-card>
@@ -332,24 +495,30 @@ onMounted(async () => {
 
     <!-- New Record Modal -->
     <n-modal v-model:show="newRecordOpen" preset="card" title="新增维修记录" style="width: 800px">
-      <n-form label-placement="left" label-width="100">
+      <n-form
+        ref="formRef"
+        :model="newRecordForm"
+        :rules="rules"
+        label-placement="left"
+        label-width="100"
+      >
         <n-grid x-gap="24" :cols="2">
-          <n-grid-item><n-form-item label="发生时间" required><n-date-picker v-model:formatted-value="newRecordForm.occurAt" value-format="yyyy-MM-dd" type="date" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="班次" required><n-select v-model:value="newRecordForm.shift" :options="[{label:'白班', value:'DAY'}, {label:'夜班', value:'NIGHT'}]" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="厂区" required><n-select v-model:value="newRecordForm.factoryId" label-field="name" value-field="id" :options="masterStore.factories" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="车间" required><n-select v-model:value="newRecordForm.workshopId" label-field="name" value-field="id" :options="newAvailableWorkshops" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="线别" required><n-select v-model:value="newRecordForm.lineId" label-field="name" value-field="id" :options="newAvailableLines" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="机型" required><n-select v-model:value="newRecordForm.modelId" label-field="name" value-field="id" :options="masterStore.models" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="机台号" required><n-select v-model:value="newRecordForm.machineId" label-field="machineNo" value-field="id" :options="newAvailableMachines" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="异常类别" required><n-select v-model:value="newRecordForm.abnormalCategoryId" label-field="name" value-field="id" :options="masterStore.abnormalCategories" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="异常分类" required><n-select v-model:value="newRecordForm.abnormalTypeId" label-field="name" value-field="id" :options="newAvailableAbnormalTypes" /></n-form-item></n-grid-item>
-          <n-grid-item span="2"><n-form-item label="异常描述" required><n-input v-model:value="newRecordForm.abnormalDesc" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="发生时间" path="occurAt"><n-date-picker v-model:formatted-value="newRecordForm.occurAt" value-format="yyyy-MM-dd" type="date" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="班次" path="shift"><n-select v-model:value="newRecordForm.shift" :options="[{label:'白班', value:'DAY'}, {label:'夜班', value:'NIGHT'}]" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="厂区" path="factoryId"><n-select v-model:value="newRecordForm.factoryId" label-field="name" value-field="id" :options="masterStore.factories" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="车间" path="workshopId"><n-select v-model:value="newRecordForm.workshopId" label-field="name" value-field="id" :options="newAvailableWorkshops" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="线别" path="lineId"><n-select v-model:value="newRecordForm.lineId" label-field="name" value-field="id" :options="newAvailableLines" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="机型" path="modelId"><n-select v-model:value="newRecordForm.modelId" label-field="name" value-field="id" :options="masterStore.models" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="机台号" path="machineId"><n-select v-model:value="newRecordForm.machineId" label-field="machineNo" value-field="id" :options="newAvailableMachines" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="异常类别" path="abnormalCategoryId"><n-select v-model:value="newRecordForm.abnormalCategoryId" label-field="name" value-field="id" :options="masterStore.abnormalCategories" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="异常分类" path="abnormalTypeId"><n-select v-model:value="newRecordForm.abnormalTypeId" label-field="name" value-field="id" :options="newAvailableAbnormalTypes" /></n-form-item></n-grid-item>
+          <n-grid-item span="2"><n-form-item label="异常描述" path="abnormalDesc"><n-input v-model:value="newRecordForm.abnormalDesc" /></n-form-item></n-grid-item>
           <n-grid-item span="2"><n-form-item label="解决对策"><n-input v-model:value="newRecordForm.solution" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="是否已修复" required><n-switch v-model:value="newRecordForm.isFixed" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="是否已修复" path="isFixed"><n-switch v-model:value="newRecordForm.isFixed" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="修复日期"><n-date-picker v-model:formatted-value="newRecordForm.fixedAt" value-format="yyyy-MM-dd" type="date" :disabled="!newRecordForm.isFixed" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="维修耗时"><n-input-number v-model:value="newRecordForm.repairMinutes" :min="0" :disabled="!newRecordForm.isFixed" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="组别" required><n-select v-model:value="newRecordForm.teamId" label-field="name" value-field="id" :options="masterStore.teams" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="责任人" required><n-select v-model:value="newRecordForm.responsiblePersonId" label-field="name" value-field="id" :options="newAvailablePeople" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="组别" path="teamId"><n-select v-model:value="newRecordForm.teamId" label-field="name" value-field="id" :options="masterStore.teams" /></n-form-item></n-grid-item>
+          <n-grid-item><n-form-item label="责任人" path="responsiblePersonId"><n-select v-model:value="newRecordForm.responsiblePersonId" label-field="name" value-field="id" :options="newAvailablePeople" /></n-form-item></n-grid-item>
           <n-grid-item span="2"><n-form-item label="维修人"><n-select multiple v-model:value="newRecordForm.repairPersonIds" label-field="name" value-field="id" :options="newAvailablePeople" /></n-form-item></n-grid-item>
         </n-grid>
       </n-form>

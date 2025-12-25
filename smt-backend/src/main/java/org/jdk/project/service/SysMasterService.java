@@ -366,5 +366,4 @@ public class SysMasterService {
       throw new BusinessException(label + "不存在");
     }
   }
-
 }

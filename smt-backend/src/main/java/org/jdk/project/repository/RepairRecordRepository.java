@@ -4,13 +4,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.jdk.project.dto.repair.RepairRecordViewDto;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.SortField;
 import org.jooq.generated.tables.*;
-import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 /** 维修记录数据访问。 */
@@ -48,11 +48,14 @@ public class RepairRecordRepository {
                 REPAIR_RECORD.FIXED_AT,
                 REPAIR_RECORD.REPAIR_MINUTES,
                 REPAIR_RECORD.TEAM_NAME,
-                REPAIR_RECORD.RESPONSIBLE_PERSON_NAME))
+                REPAIR_RECORD.RESPONSIBLE_PERSON_NAME)
             .from(REPAIR_RECORD)
             .where(condition);
 
-    var ordered = orderBy == null || orderBy.isEmpty() ? select.orderBy(REPAIR_RECORD.ID.desc()) : select.orderBy(orderBy);
+    var ordered =
+        orderBy == null || orderBy.isEmpty()
+            ? select.orderBy(REPAIR_RECORD.ID.desc())
+            : select.orderBy(orderBy);
     if (limit == null || offset == null) {
       return ordered.fetchInto(RepairRecordViewDto.class);
     }
@@ -90,25 +93,14 @@ public class RepairRecordRepository {
       Boolean isFixed,
       LocalDateTime fixedAt,
       Integer repairMinutes) {
-    dsl.insertInto(REPAIR_RECORD)
-        .columns(
-            REPAIR_RECORD.OCCUR_AT,
-            REPAIR_RECORD.SHIFT,
-            REPAIR_RECORD.FACTORY_NAME,
-            REPAIR_RECORD.WORKSHOP_NAME,
-            REPAIR_RECORD.LINE_NAME,
-            REPAIR_RECORD.MODEL_NAME,
-            REPAIR_RECORD.MACHINE_NO,
-            REPAIR_RECORD.ABNORMAL_CATEGORY_NAME,
-            REPAIR_RECORD.ABNORMAL_TYPE_NAME,
-            REPAIR_RECORD.TEAM_NAME,
-            REPAIR_RECORD.RESPONSIBLE_PERSON_NAME,
-            REPAIR_RECORD.ABNORMAL_DESC,
-            REPAIR_RECORD.SOLUTION,
-            REPAIR_RECORD.IS_FIXED,
-            REPAIR_RECORD.FIXED_AT,
-            REPAIR_RECORD.REPAIR_MINUTES)
-        .values(
+    String sql =
+        "insert into smtBackend.repair_record ([occur_at], [shift], [factory_name],"
+            + " [workshop_name], [line_name], [model_name], [machine_no], [abnormal_category_name],"
+            + " [abnormal_type_name], [team_name], [responsible_person_name], [abnormal_desc],"
+            + " [solution], [is_fixed], [fixed_at], [repair_minutes]) output inserted.id values (?,"
+            + " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    return dsl.resultQuery(
+            sql,
             occurAt,
             shift,
             factoryName,
@@ -125,8 +117,7 @@ public class RepairRecordRepository {
             isFixed,
             fixedAt,
             repairMinutes)
-        .execute();
-    return fetchIdentity();
+        .fetchOne(0, Long.class);
   }
 
   public int updateRecord(
@@ -189,15 +180,9 @@ public class RepairRecordRepository {
                 personName ->
                     dsl.insertInto(REPAIR_RECORD_PERSON)
                         .columns(
-                            REPAIR_RECORD_PERSON.REPAIR_RECORD_ID,
-                            REPAIR_RECORD_PERSON.PERSON_NAME)
+                            REPAIR_RECORD_PERSON.REPAIR_RECORD_ID, REPAIR_RECORD_PERSON.PERSON_NAME)
                         .values(recordId, personName))
             .toList();
     dsl.batch(inserts).execute();
-  }
-
-  private Long fetchIdentity() {
-    return dsl.select(DSL.field("cast(scope_identity() as bigint)", Long.class))
-        .fetchOne(0, Long.class);
   }
 }
