@@ -301,10 +301,10 @@ const openNewRecord = () => {
 const handleEdit = (row) => {
   const form = createEmptyRecord()
   form.id = row.id
-  form.occurAt = formatDate(row.occurAt, 'yyyy-MM-dd') // DatePicker expects format
+  form.occurAt = formatDate(row.occurAt, 'yyyy-MM-dd')
   form.shift = row.shift
   
-  // Reverse lookup for Cascading IDs
+  // Reverse lookup
   form.factoryId = getIdByName(masterStore.factories, row.factoryName)
   form.workshopId = getIdByName(masterStore.workshops, row.workshopName)
   form.lineId = getIdByName(masterStore.lines, row.lineName)
@@ -346,11 +346,8 @@ const handleExport = async () => {
       abnormalTypeName: getNameById(masterStore.abnormalTypes, filterForm.value.abnormalTypeId),
       responsiblePersonName: getNameById(masterStore.people, filterForm.value.responsiblePersonId),
       repairPersonName: getNameById(masterStore.people, filterForm.value.repairPersonId),
-      teamName: getNameById(masterStore.teams, filterForm.value.teamId) // Ensure team is included if filtered
+      teamName: getNameById(masterStore.teams, filterForm.value.teamId)
     }
-    // Note: The UI for teamId filtering was missing in the grid. I should check if it needs to be added or if user meant the 'responsiblePersonId' implies team context.
-    // The previous prompt said "导出某组的数据". Currently I don't see a Team selector in the filter grid, only in the create modal.
-    // I should add a Team selector to the filter grid to support "导出某组".
     await exportRepairRecords(query)
     message.success('导出成功')
   } catch (err) {
@@ -404,7 +401,6 @@ const submitNewRecord = async () => {
     loadRecords()
   } catch (err) {
     if (Array.isArray(err)) {
-      // Validation errors
       message.warning('请检查必填项')
     } else {
       message.error(err.message || '保存失败')
@@ -412,7 +408,6 @@ const submitNewRecord = async () => {
   }
 }
 
-// Watchers for cascading dropdown resets (simplified)
 watch(() => newRecordForm.value.factoryId, () => newRecordForm.value.workshopId = null)
 watch(() => newRecordForm.value.workshopId, () => newRecordForm.value.lineId = null)
 watch(() => newRecordForm.value.modelId, () => newRecordForm.value.machineId = null)
@@ -421,7 +416,6 @@ watch(() => newRecordForm.value.teamId, () => {
   newRecordForm.value.responsiblePersonId = null
   newRecordForm.value.repairPersonIds = []
 })
-// Filter cascading
 watch(() => filterForm.value.factoryId, () => filterForm.value.workshopId = null)
 watch(() => filterForm.value.workshopId, () => filterForm.value.lineId = null)
 watch(() => filterForm.value.modelId, () => filterForm.value.machineId = null)
@@ -436,6 +430,10 @@ onMounted(async () => {
 
 <template>
   <div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 500;">维修工作台</h2>
+    </div>
+
     <n-card style="margin-bottom: 16px;">
       <n-grid x-gap="12" y-gap="12" :cols="6">
         <n-grid-item>

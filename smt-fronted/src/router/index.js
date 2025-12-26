@@ -19,6 +19,12 @@ const routes = [
         meta: { permission: 'repair:read' }
       },
       {
+        path: 'work-order',
+        name: 'WorkOrder',
+        component: () => import('../views/repair/WorkOrderView.vue'),
+        meta: { permission: 'repair:read' }
+      },
+      {
         path: 'analytics',
         name: 'Analytics',
         component: () => import('../views/repair/AnalyticsView.vue'),

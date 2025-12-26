@@ -186,7 +186,7 @@ jooq {
                     }
                     forcedType {
                         name = "LOCALDATETIME"
-                        includeExpression = ".*\\.(create_time|occur_at|fixed_at)$"
+                        includeExpression = ".*\\.(create_time|occur_at|fixed_at|created_at|updated_at)$"
                     }
                 }
             }

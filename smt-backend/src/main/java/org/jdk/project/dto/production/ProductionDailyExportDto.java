@@ -1,0 +1,71 @@
+package org.jdk.project.dto.production;
+
+import com.alibaba.excel.annotation.ExcelProperty;
+import com.alibaba.excel.annotation.write.style.ColumnWidth;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import lombok.Data;
+
+@Data
+public class ProductionDailyExportDto {
+
+  @ExcelProperty("日期")
+  @ColumnWidth(12)
+  private LocalDate prodDate;
+
+  @ExcelProperty("班别")
+  @ColumnWidth(8)
+  private String shift;
+
+  @ExcelProperty("制程段")
+  @ColumnWidth(15)
+  private String processName;
+
+  @ExcelProperty("生产料号")
+  @ColumnWidth(18)
+  private String productCode;
+
+  @ExcelProperty("系列")
+  @ColumnWidth(12)
+  private String seriesName;
+
+  @ExcelProperty("CT")
+  @ColumnWidth(10)
+  private BigDecimal ct;
+
+  @ExcelProperty("投入设备量")
+  @ColumnWidth(12)
+  private Integer equipmentCount;
+
+  @ExcelProperty("投产时间(MIN)")
+  @ColumnWidth(15)
+  private Integer runMinutes;
+
+  @ExcelProperty("目标产能")
+  @ColumnWidth(12)
+  private Integer targetOutput;
+
+  @ExcelProperty("实际产出")
+  @ColumnWidth(12)
+  private Integer actualOutput;
+
+  @ExcelProperty("GAP")
+  @ColumnWidth(10)
+  private Integer gap;
+
+  @ExcelProperty("达成率(%)")
+  @ColumnWidth(12)
+  private BigDecimal achievementRate;
+
+  @ExcelProperty("理论Down机时间")
+  @ColumnWidth(15)
+  private Integer downMinutes;
+
+  @ExcelProperty("FA")
+  @ColumnWidth(30)
+  private String fa;
+
+  @ExcelProperty("CA")
+  @ColumnWidth(30)
+  private String ca;
+}
