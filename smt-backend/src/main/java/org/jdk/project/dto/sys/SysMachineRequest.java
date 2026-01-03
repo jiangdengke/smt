@@ -7,7 +7,7 @@ import lombok.Data;
 /** 机台维护请求。 */
 @Data
 public class SysMachineRequest {
-  @NotNull private Long modelId;
+  @NotNull private Long lineId;
   @NotBlank private String machineNo;
   private Integer sortOrder;
   private String remark;

@@ -98,36 +98,10 @@ public class SysMasterController {
     sysMasterService.deleteLine(id);
   }
 
-  @GetMapping("/models")
-  public List<org.jooq.generated.tables.pojos.SysModel> listModels() {
-    return sysMasterService.listModels();
-  }
-
-  @ResponseStatus(HttpStatus.CREATED)
-  @PostMapping("/models")
-  @PreAuthorize("hasRole('ADMIN')")
-  public Long createModel(@RequestBody @Valid SysSimpleRequest request) {
-    return sysMasterService.createModel(request);
-  }
-
-  @ResponseStatus(HttpStatus.OK)
-  @PutMapping("/models/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
-  public void updateModel(@PathVariable Long id, @RequestBody @Valid SysSimpleRequest request) {
-    sysMasterService.updateModel(id, request);
-  }
-
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  @DeleteMapping("/models/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
-  public void deleteModel(@PathVariable Long id) {
-    sysMasterService.deleteModel(id);
-  }
-
   @GetMapping("/machines")
   public List<org.jooq.generated.tables.pojos.SysMachine> listMachines(
-      @RequestParam(required = false) Long modelId) {
-    return sysMasterService.listMachines(modelId);
+      @RequestParam(required = false) Long lineId) {
+    return sysMasterService.listMachines(lineId);
   }
 
   @ResponseStatus(HttpStatus.CREATED)

@@ -70,7 +70,6 @@ public class RepairRecordService {
     export.setFactoryName(dto.getFactoryName());
     export.setWorkshopName(dto.getWorkshopName());
     export.setLineName(dto.getLineName());
-    export.setModelName(dto.getModelName());
     export.setMachineNo(dto.getMachineNo());
     export.setAbnormalCategoryName(dto.getAbnormalCategoryName());
     export.setAbnormalTypeName(dto.getAbnormalTypeName());
@@ -113,7 +112,6 @@ public class RepairRecordService {
     String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
     String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
     String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
-    String modelName = normalizeRequiredText(request.getModelName(), "机型不能为空");
     String machineNo = normalizeRequiredText(request.getMachineNo(), "机台号不能为空");
     String abnormalCategoryName =
         normalizeRequiredText(request.getAbnormalCategoryName(), "异常类别不能为空");
@@ -129,7 +127,6 @@ public class RepairRecordService {
             factoryName,
             workshopName,
             lineName,
-            modelName,
             machineNo,
             abnormalCategoryName,
             abnormalTypeName,
@@ -154,7 +151,6 @@ public class RepairRecordService {
     String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
     String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
     String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
-    String modelName = normalizeRequiredText(request.getModelName(), "机型不能为空");
     String machineNo = normalizeRequiredText(request.getMachineNo(), "机台号不能为空");
     String abnormalCategoryName =
         normalizeRequiredText(request.getAbnormalCategoryName(), "异常类别不能为空");
@@ -171,7 +167,6 @@ public class RepairRecordService {
             factoryName,
             workshopName,
             lineName,
-            modelName,
             machineNo,
             abnormalCategoryName,
             abnormalTypeName,
@@ -259,10 +254,6 @@ public class RepairRecordService {
     String lineName = normalizeText(query.getLineName());
     if (lineName != null) {
       condition = condition.and(REPAIR_RECORD.LINE_NAME.eq(lineName));
-    }
-    String modelName = normalizeText(query.getModelName());
-    if (modelName != null) {
-      condition = condition.and(REPAIR_RECORD.MODEL_NAME.eq(modelName));
     }
     String machineNo = normalizeText(query.getMachineNo());
     if (machineNo != null) {

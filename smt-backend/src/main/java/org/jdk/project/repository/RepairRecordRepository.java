@@ -38,7 +38,6 @@ public class RepairRecordRepository {
                 REPAIR_RECORD.FACTORY_NAME,
                 REPAIR_RECORD.WORKSHOP_NAME,
                 REPAIR_RECORD.LINE_NAME,
-                REPAIR_RECORD.MODEL_NAME,
                 REPAIR_RECORD.MACHINE_NO,
                 REPAIR_RECORD.ABNORMAL_CATEGORY_NAME,
                 REPAIR_RECORD.ABNORMAL_TYPE_NAME,
@@ -82,7 +81,6 @@ public class RepairRecordRepository {
       String factoryName,
       String workshopName,
       String lineName,
-      String modelName,
       String machineNo,
       String abnormalCategoryName,
       String abnormalTypeName,
@@ -95,10 +93,10 @@ public class RepairRecordRepository {
       Integer repairMinutes) {
     String sql =
         "insert into smtBackend.repair_record ([occur_at], [shift], [factory_name],"
-            + " [workshop_name], [line_name], [model_name], [machine_no], [abnormal_category_name],"
+            + " [workshop_name], [line_name], [machine_no], [abnormal_category_name],"
             + " [abnormal_type_name], [team_name], [responsible_person_name], [abnormal_desc],"
             + " [solution], [is_fixed], [fixed_at], [repair_minutes]) output inserted.id values (?,"
-            + " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     return dsl.resultQuery(
             sql,
             occurAt,
@@ -106,7 +104,6 @@ public class RepairRecordRepository {
             factoryName,
             workshopName,
             lineName,
-            modelName,
             machineNo,
             abnormalCategoryName,
             abnormalTypeName,
@@ -127,7 +124,6 @@ public class RepairRecordRepository {
       String factoryName,
       String workshopName,
       String lineName,
-      String modelName,
       String machineNo,
       String abnormalCategoryName,
       String abnormalTypeName,
@@ -144,7 +140,6 @@ public class RepairRecordRepository {
         .set(REPAIR_RECORD.FACTORY_NAME, factoryName)
         .set(REPAIR_RECORD.WORKSHOP_NAME, workshopName)
         .set(REPAIR_RECORD.LINE_NAME, lineName)
-        .set(REPAIR_RECORD.MODEL_NAME, modelName)
         .set(REPAIR_RECORD.MACHINE_NO, machineNo)
         .set(REPAIR_RECORD.ABNORMAL_CATEGORY_NAME, abnormalCategoryName)
         .set(REPAIR_RECORD.ABNORMAL_TYPE_NAME, abnormalTypeName)

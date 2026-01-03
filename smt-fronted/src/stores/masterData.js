@@ -7,7 +7,6 @@ const apiMap = {
   factory: sysApi.factoryApi,
   workshop: sysApi.workshopApi,
   line: sysApi.lineApi,
-  model: sysApi.modelApi,
   machine: sysApi.machineApi,
   'abnormal-category': sysApi.abnormalCategoryApi,
   'abnormal-type': sysApi.abnormalTypeApi,
@@ -19,7 +18,6 @@ export const useMasterDataStore = defineStore('masterData', () => {
   const factories = ref([])
   const workshops = ref([])
   const lines = ref([])
-  const models = ref([])
   const machines = ref([])
   const abnormalCategories = ref([])
   const abnormalTypes = ref([])
@@ -42,7 +40,6 @@ export const useMasterDataStore = defineStore('masterData', () => {
       resFactories,
       resWorkshops,
       resLines,
-      resModels,
       resMachines,
       resCategories,
       resTypes,
@@ -52,7 +49,6 @@ export const useMasterDataStore = defineStore('masterData', () => {
       sysApi.getFactories(),
       sysApi.getWorkshops(),
       sysApi.getLines(),
-      sysApi.getModels(),
       sysApi.getMachines(),
       sysApi.getAbnormalCategories(),
       sysApi.getAbnormalTypes(),
@@ -63,7 +59,6 @@ export const useMasterDataStore = defineStore('masterData', () => {
     factories.value = resFactories || []
     workshops.value = resWorkshops || []
     lines.value = resLines || []
-    models.value = resModels || []
     machines.value = resMachines || []
     abnormalCategories.value = resCategories || []
     abnormalTypes.value = resTypes || []
@@ -99,7 +94,6 @@ export const useMasterDataStore = defineStore('masterData', () => {
     factories.value = []
     workshops.value = []
     lines.value = []
-    models.value = []
     machines.value = []
     abnormalCategories.value = []
     abnormalTypes.value = []
@@ -112,7 +106,6 @@ export const useMasterDataStore = defineStore('masterData', () => {
     factories,
     workshops,
     lines,
-    models,
     machines,
     abnormalCategories,
     abnormalTypes,

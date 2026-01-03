@@ -28,10 +28,6 @@ public class RepairRecordExportDto {
   @ColumnWidth(15)
   private String lineName;
 
-  @ExcelProperty("机型")
-  @ColumnWidth(15)
-  private String modelName;
-
   @ExcelProperty("机台号")
   @ColumnWidth(15)
   private String machineNo;

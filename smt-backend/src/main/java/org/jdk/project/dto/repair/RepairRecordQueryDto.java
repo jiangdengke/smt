@@ -23,7 +23,6 @@ public class RepairRecordQueryDto {
   private String factoryName;
   private String workshopName;
   private String lineName;
-  private String modelName;
   private String machineNo;
   private String abnormalCategoryName;
   private String abnormalTypeName;

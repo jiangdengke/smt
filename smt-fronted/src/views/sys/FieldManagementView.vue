@@ -26,7 +26,7 @@ const activeModuleId = ref('factory')
 const filters = ref({
   factoryId: null,
   workshopId: null,
-  modelId: null,
+  lineId: null,
   abnormalCategoryId: null,
   teamId: null,
   keyword: ''
@@ -48,7 +48,7 @@ watch(activeModuleId, () => {
   filters.value = {
     factoryId: null,
     workshopId: null,
-    modelId: null,
+    lineId: null,
     abnormalCategoryId: null,
     teamId: null,
     keyword: ''
@@ -61,9 +61,35 @@ const availableWorkshops = computed(() => {
   return masterStore.workshops.filter(w => w.factoryId === filters.value.factoryId)
 })
 
+const availableLines = computed(() => {
+  if (filters.value.workshopId) {
+    return masterStore.lines.filter(l => l.workshopId === filters.value.workshopId)
+  }
+  if (filters.value.factoryId) {
+    const workshopIds = masterStore.workshops
+      .filter(w => w.factoryId === filters.value.factoryId)
+      .map(w => w.id)
+    return masterStore.lines.filter(l => workshopIds.includes(l.workshopId))
+  }
+  return masterStore.lines
+})
+
 const formWorkshops = computed(() => {
   if (!formData.value.factoryId) return masterStore.workshops
   return masterStore.workshops.filter(w => w.factoryId === formData.value.factoryId)
+})
+
+const formLines = computed(() => {
+  if (formData.value.workshopId) {
+    return masterStore.lines.filter(l => l.workshopId === formData.value.workshopId)
+  }
+  if (formData.value.factoryId) {
+    const workshopIds = masterStore.workshops
+      .filter(w => w.factoryId === formData.value.factoryId)
+      .map(w => w.id)
+    return masterStore.lines.filter(l => workshopIds.includes(l.workshopId))
+  }
+  return masterStore.lines
 })
 
 // 左侧菜单配置（分组）
@@ -83,7 +109,6 @@ const menuOptions = [
     key: 'group-equipment',
     type: 'group',
     children: [
-      { label: '机型维护', key: 'model' },
       { label: '机台维护', key: 'machine' }
     ]
   },
@@ -138,21 +163,13 @@ const moduleConfig = computed(() => ({
       { title: '操作', key: 'actions', width: 150, render: renderActions }
     ]
   },
-  model: {
-    label: '机型维护',
-    data: masterStore.models,
-    columns: [
-      { title: '机型名称', key: 'name' },
-      { title: '操作', key: 'actions', width: 150, render: renderActions }
-    ]
-  },
   machine: {
     label: '机台维护',
     filterType: 'machine',
     data: masterStore.machines,
     columns: [
       { title: '机台号', key: 'machineNo' },
-      { title: '所属机型', key: 'modelId', render: (row) => masterStore.models.find(m => m.id === row.modelId)?.name || row.modelId },
+      { title: '所属线别', key: 'lineId', render: (row) => masterStore.lines.find(l => l.id === row.lineId)?.name || row.lineId },
       { title: '操作', key: 'actions', width: 150, render: renderActions }
     ]
   },
@@ -207,10 +224,18 @@ const filteredData = computed(() => {
     } else if (activeModuleId.value === 'line') {
       const workshopIds = masterStore.workshops.filter(w => w.factoryId === f.factoryId).map(w => w.id)
       data = data.filter(d => workshopIds.includes(d.workshopId))
+    } else if (activeModuleId.value === 'machine') {
+      const workshopIds = masterStore.workshops.filter(w => w.factoryId === f.factoryId).map(w => w.id)
+      const lineIds = masterStore.lines.filter(l => workshopIds.includes(l.workshopId)).map(l => l.id)
+      data = data.filter(d => lineIds.includes(d.lineId))
     }
   }
   if (f.workshopId && activeModuleId.value === 'line') data = data.filter(d => d.workshopId === f.workshopId)
-  if (f.modelId && activeModuleId.value === 'machine') data = data.filter(d => d.modelId === f.modelId)
+  if (f.workshopId && activeModuleId.value === 'machine') {
+    const lineIds = masterStore.lines.filter(l => l.workshopId === f.workshopId).map(l => l.id)
+    data = data.filter(d => lineIds.includes(d.lineId))
+  }
+  if (f.lineId && activeModuleId.value === 'machine') data = data.filter(d => d.lineId === f.lineId)
   if (f.abnormalCategoryId && activeModuleId.value === 'abnormal-type') data = data.filter(d => d.abnormalCategoryId === f.abnormalCategoryId)
   if (f.teamId && activeModuleId.value === 'people') data = data.filter(d => d.teamId === f.teamId)
   if (f.keyword) {
@@ -250,6 +275,16 @@ const handleCreate = () => {
 
 const handleEdit = (row) => {
   formData.value = { ...row }
+  if (activeModuleId.value === 'machine' && row.lineId) {
+    const line = masterStore.lines.find(l => l.id === row.lineId)
+    if (line) {
+      formData.value.workshopId = line.workshopId
+      const workshop = masterStore.workshops.find(w => w.id === line.workshopId)
+      if (workshop) {
+        formData.value.factoryId = workshop.factoryId
+      }
+    }
+  }
   modalType.value = 'edit'
   modalVisible.value = true
 }
@@ -307,14 +342,14 @@ onMounted(() => {
               <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 500;">{{ currentModule.label }}列表</h2>
               <n-space>
                 <n-select 
-                  v-if="['workshop', 'line'].includes(activeModuleId)"
+                  v-if="['workshop', 'line', 'machine'].includes(activeModuleId)"
                   v-model:value="filters.factoryId" 
                   placeholder="所属厂区" 
                   :options="masterStore.factories" 
                   label-field="name" value-field="id" clearable style="width: 150px"
                 />
                 <n-select 
-                  v-if="activeModuleId === 'line'"
+                  v-if="['line', 'machine'].includes(activeModuleId)"
                   v-model:value="filters.workshopId" 
                   placeholder="所属车间" 
                   :options="availableWorkshops" 
@@ -322,9 +357,9 @@ onMounted(() => {
                 />
                 <n-select 
                   v-if="activeModuleId === 'machine'"
-                  v-model:value="filters.modelId" 
-                  placeholder="所属机型" 
-                  :options="masterStore.models" 
+                  v-model:value="filters.lineId" 
+                  placeholder="所属线别" 
+                  :options="availableLines" 
                   label-field="name" value-field="id" clearable style="width: 150px"
                 />
                 <n-select 
@@ -385,9 +420,15 @@ onMounted(() => {
           <n-select v-model:value="formData.workshopId" :options="formWorkshops" label-field="name" value-field="id" />
         </n-form-item>
 
-        <!-- 关联字段：机台所属机型 -->
-        <n-form-item v-if="activeModuleId === 'machine'" label="所属机型" required>
-          <n-select v-model:value="formData.modelId" :options="masterStore.models" label-field="name" value-field="id" />
+        <!-- 关联字段：机台所属厂区/车间/线别 -->
+        <n-form-item v-if="activeModuleId === 'machine'" label="所属厂区">
+          <n-select v-model:value="formData.factoryId" :options="masterStore.factories" label-field="name" value-field="id" clearable />
+        </n-form-item>
+        <n-form-item v-if="activeModuleId === 'machine'" label="所属车间">
+          <n-select v-model:value="formData.workshopId" :options="formWorkshops" label-field="name" value-field="id" clearable />
+        </n-form-item>
+        <n-form-item v-if="activeModuleId === 'machine'" label="所属线别" required>
+          <n-select v-model:value="formData.lineId" :options="formLines" label-field="name" value-field="id" />
         </n-form-item>
 
         <!-- 关联字段：异常分类所属类别 -->

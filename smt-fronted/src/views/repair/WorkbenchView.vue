@@ -34,7 +34,6 @@ const filterForm = ref({
   factoryId: null,
   workshopId: null,
   lineId: null,
-  modelId: null,
   machineId: null,
   abnormalCategoryId: null,
   abnormalTypeId: null,
@@ -54,7 +53,6 @@ const rules = {
   factoryId: { required: true, type: 'number', message: '请选择厂区', trigger: ['blur', 'change'] },
   workshopId: { required: true, type: 'number', message: '请选择车间', trigger: ['blur', 'change'] },
   lineId: { required: true, type: 'number', message: '请选择线别', trigger: ['blur', 'change'] },
-  modelId: { required: true, type: 'number', message: '请选择机型', trigger: ['blur', 'change'] },
   machineId: { required: true, type: 'number', message: '请选择机台号', trigger: ['blur', 'change'] },
   abnormalCategoryId: { required: true, type: 'number', message: '请选择异常类别', trigger: ['blur', 'change'] },
   abnormalTypeId: { required: true, type: 'number', message: '请选择异常分类', trigger: ['blur', 'change'] },
@@ -75,8 +73,8 @@ const filterLines = computed(() =>
     : masterStore.lines
 )
 const filterMachines = computed(() => 
-  filterForm.value.modelId 
-    ? masterStore.machines.filter(i => i.modelId === filterForm.value.modelId) 
+  filterForm.value.lineId
+    ? masterStore.machines.filter(i => i.lineId === filterForm.value.lineId)
     : masterStore.machines
 )
 const filterAbnormalTypes = computed(() => 
@@ -97,8 +95,8 @@ const newAvailableLines = computed(() =>
     : []
 )
 const newAvailableMachines = computed(() => 
-  newRecordForm.value.modelId 
-    ? masterStore.machines.filter(i => i.modelId === newRecordForm.value.modelId) 
+  newRecordForm.value.lineId
+    ? masterStore.machines.filter(i => i.lineId === newRecordForm.value.lineId)
     : []
 )
 const newAvailableAbnormalTypes = computed(() => 
@@ -138,7 +136,6 @@ function createEmptyRecord() {
     factoryId: null,
     workshopId: null,
     lineId: null,
-    modelId: null,
     machineId: null,
     abnormalCategoryId: null,
     abnormalTypeId: null,
@@ -173,7 +170,7 @@ const columns = [
     title: '机台',
     key: 'machine',
     render(row) {
-      return `${row.modelName || '-'} - ${row.machineNo || '-'}`
+      return `${row.machineNo || '-'}`
     }
   },
   {
@@ -256,7 +253,6 @@ const loadRecords = async (page = 1) => {
       factoryName: getNameById(masterStore.factories, filterForm.value.factoryId),
       workshopName: getNameById(masterStore.workshops, filterForm.value.workshopId),
       lineName: getNameById(masterStore.lines, filterForm.value.lineId),
-      modelName: getNameById(masterStore.models, filterForm.value.modelId),
       machineNo: getNameById(masterStore.machines, filterForm.value.machineId, 'machineNo'),
       abnormalCategoryName: getNameById(masterStore.abnormalCategories, filterForm.value.abnormalCategoryId),
       abnormalTypeName: getNameById(masterStore.abnormalTypes, filterForm.value.abnormalTypeId),
@@ -282,7 +278,6 @@ const resetFilter = () => {
     factoryId: null,
     workshopId: null,
     lineId: null,
-    modelId: null,
     machineId: null,
     abnormalCategoryId: null,
     abnormalTypeId: null,
@@ -308,7 +303,6 @@ const handleEdit = (row) => {
   form.factoryId = getIdByName(masterStore.factories, row.factoryName)
   form.workshopId = getIdByName(masterStore.workshops, row.workshopName)
   form.lineId = getIdByName(masterStore.lines, row.lineName)
-  form.modelId = getIdByName(masterStore.models, row.modelName)
   form.machineId = getIdByMachineNo(masterStore.machines, row.machineNo)
   
   form.abnormalCategoryId = getIdByName(masterStore.abnormalCategories, row.abnormalCategoryName)
@@ -340,7 +334,6 @@ const handleExport = async () => {
       factoryName: getNameById(masterStore.factories, filterForm.value.factoryId),
       workshopName: getNameById(masterStore.workshops, filterForm.value.workshopId),
       lineName: getNameById(masterStore.lines, filterForm.value.lineId),
-      modelName: getNameById(masterStore.models, filterForm.value.modelId),
       machineNo: getNameById(masterStore.machines, filterForm.value.machineId, 'machineNo'),
       abnormalCategoryName: getNameById(masterStore.abnormalCategories, filterForm.value.abnormalCategoryId),
       abnormalTypeName: getNameById(masterStore.abnormalTypes, filterForm.value.abnormalTypeId),
@@ -375,7 +368,6 @@ const submitNewRecord = async () => {
       factoryName: getNameById(masterStore.factories, f.factoryId),
       workshopName: getNameById(masterStore.workshops, f.workshopId),
       lineName: getNameById(masterStore.lines, f.lineId),
-      modelName: getNameById(masterStore.models, f.modelId),
       machineNo: getNameById(masterStore.machines, f.machineId, 'machineNo'),
       abnormalCategoryName: getNameById(masterStore.abnormalCategories, f.abnormalCategoryId),
       abnormalTypeName: getNameById(masterStore.abnormalTypes, f.abnormalTypeId),
@@ -410,7 +402,7 @@ const submitNewRecord = async () => {
 
 watch(() => newRecordForm.value.factoryId, () => newRecordForm.value.workshopId = null)
 watch(() => newRecordForm.value.workshopId, () => newRecordForm.value.lineId = null)
-watch(() => newRecordForm.value.modelId, () => newRecordForm.value.machineId = null)
+watch(() => newRecordForm.value.lineId, () => newRecordForm.value.machineId = null)
 watch(() => newRecordForm.value.abnormalCategoryId, () => newRecordForm.value.abnormalTypeId = null)
 watch(() => newRecordForm.value.teamId, () => {
   newRecordForm.value.responsiblePersonId = null
@@ -418,7 +410,7 @@ watch(() => newRecordForm.value.teamId, () => {
 })
 watch(() => filterForm.value.factoryId, () => filterForm.value.workshopId = null)
 watch(() => filterForm.value.workshopId, () => filterForm.value.lineId = null)
-watch(() => filterForm.value.modelId, () => filterForm.value.machineId = null)
+watch(() => filterForm.value.lineId, () => filterForm.value.machineId = null)
 watch(() => filterForm.value.abnormalCategoryId, () => filterForm.value.abnormalTypeId = null)
 watch(filterForm, () => loadRecords(1), { deep: true })
 
@@ -453,9 +445,6 @@ onMounted(async () => {
         </n-grid-item>
         <n-grid-item>
           <n-select v-model:value="filterForm.lineId" clearable placeholder="线别" label-field="name" value-field="id" :options="filterLines" />
-        </n-grid-item>
-        <n-grid-item>
-          <n-select v-model:value="filterForm.modelId" clearable placeholder="机型" label-field="name" value-field="id" :options="masterStore.models" />
         </n-grid-item>
         <n-grid-item>
           <n-select v-model:value="filterForm.machineId" clearable placeholder="机台" label-field="machineNo" value-field="id" :options="filterMachines" />
@@ -506,7 +495,6 @@ onMounted(async () => {
           <n-grid-item><n-form-item label="厂区" path="factoryId"><n-select v-model:value="newRecordForm.factoryId" label-field="name" value-field="id" :options="masterStore.factories" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="车间" path="workshopId"><n-select v-model:value="newRecordForm.workshopId" label-field="name" value-field="id" :options="newAvailableWorkshops" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="线别" path="lineId"><n-select v-model:value="newRecordForm.lineId" label-field="name" value-field="id" :options="newAvailableLines" /></n-form-item></n-grid-item>
-          <n-grid-item><n-form-item label="机型" path="modelId"><n-select v-model:value="newRecordForm.modelId" label-field="name" value-field="id" :options="masterStore.models" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="机台号" path="machineId"><n-select v-model:value="newRecordForm.machineId" label-field="machineNo" value-field="id" :options="newAvailableMachines" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="异常类别" path="abnormalCategoryId"><n-select v-model:value="newRecordForm.abnormalCategoryId" label-field="name" value-field="id" :options="masterStore.abnormalCategories" /></n-form-item></n-grid-item>
           <n-grid-item><n-form-item label="异常分类" path="abnormalTypeId"><n-select v-model:value="newRecordForm.abnormalTypeId" label-field="name" value-field="id" :options="newAvailableAbnormalTypes" /></n-form-item></n-grid-item>

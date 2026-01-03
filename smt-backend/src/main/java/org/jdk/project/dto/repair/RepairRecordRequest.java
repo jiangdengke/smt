@@ -19,7 +19,6 @@ public class RepairRecordRequest {
   @NotBlank private String factoryName;
   @NotBlank private String workshopName;
   @NotBlank private String lineName;
-  @NotBlank private String modelName;
   @NotBlank private String machineNo;
   @NotBlank private String abnormalCategoryName;
   @NotBlank private String abnormalTypeName;

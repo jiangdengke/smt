@@ -10,7 +10,6 @@ import org.jooq.generated.tables.pojos.SysAbnormalType;
 import org.jooq.generated.tables.pojos.SysFactory;
 import org.jooq.generated.tables.pojos.SysLine;
 import org.jooq.generated.tables.pojos.SysMachine;
-import org.jooq.generated.tables.pojos.SysModel;
 import org.jooq.generated.tables.pojos.SysPerson;
 import org.jooq.generated.tables.pojos.SysTeam;
 import org.jooq.generated.tables.pojos.SysWorkshop;
@@ -28,8 +27,6 @@ public class SysMasterRepository {
       org.jooq.generated.tables.SysWorkshop.SYS_WORKSHOP;
   private static final org.jooq.generated.tables.SysLine SYS_LINE =
       org.jooq.generated.tables.SysLine.SYS_LINE;
-  private static final org.jooq.generated.tables.SysModel SYS_MODEL =
-      org.jooq.generated.tables.SysModel.SYS_MODEL;
   private static final org.jooq.generated.tables.SysMachine SYS_MACHINE =
       org.jooq.generated.tables.SysMachine.SYS_MACHINE;
   private static final org.jooq.generated.tables.SysAbnormalCategory SYS_ABNORMAL_CATEGORY =
@@ -71,16 +68,10 @@ public class SysMasterRepository {
         .fetchInto(SysLine.class);
   }
 
-  public List<SysModel> listModels() {
-    return dsl.selectFrom(SYS_MODEL)
-        .orderBy(SYS_MODEL.SORT_ORDER.asc(), SYS_MODEL.ID.asc())
-        .fetchInto(SysModel.class);
-  }
-
-  public List<SysMachine> listMachines(Long modelId) {
+  public List<SysMachine> listMachines(Long lineId) {
     Condition condition = DSL.condition("1=1");
-    if (modelId != null) {
-      condition = condition.and(SYS_MACHINE.MODEL_ID.eq(modelId));
+    if (lineId != null) {
+      condition = condition.and(SYS_MACHINE.LINE_ID.eq(lineId));
     }
     return dsl.selectFrom(SYS_MACHINE)
         .where(condition)
@@ -198,41 +189,20 @@ public class SysMasterRepository {
     return dsl.deleteFrom(SYS_LINE).where(SYS_LINE.ID.eq(id)).execute();
   }
 
-  public Long insertModel(String name, String code, int sortOrder, String remark) {
+  public boolean existsMachineByLine(Long lineId) {
+    return exists(SYS_MACHINE, SYS_MACHINE.LINE_ID.eq(lineId));
+  }
+
+  public Long insertMachine(Long lineId, String machineNo, int sortOrder, String remark) {
     String sql =
-        "insert into smtBackend.sys_model ([name], [code], [sort_order], [remark]) "
-            + "output inserted.id values (?, ?, ?, ?)";
-    return dsl.resultQuery(sql, name, code, sortOrder, remark).fetchOne(0, Long.class);
-  }
-
-  public int updateModel(Long id, String name, String code, int sortOrder, String remark) {
-    return dsl.update(SYS_MODEL)
-        .set(SYS_MODEL.NAME, name)
-        .set(SYS_MODEL.CODE, code)
-        .set(SYS_MODEL.SORT_ORDER, sortOrder)
-        .set(SYS_MODEL.REMARK, remark)
-        .where(SYS_MODEL.ID.eq(id))
-        .execute();
-  }
-
-  public int deleteModel(Long id) {
-    return dsl.deleteFrom(SYS_MODEL).where(SYS_MODEL.ID.eq(id)).execute();
-  }
-
-  public boolean existsMachineByModel(Long modelId) {
-    return exists(SYS_MACHINE, SYS_MACHINE.MODEL_ID.eq(modelId));
-  }
-
-  public Long insertMachine(Long modelId, String machineNo, int sortOrder, String remark) {
-    String sql =
-        "insert into smtBackend.sys_machine ([model_id], [machine_no], [sort_order], "
+        "insert into smtBackend.sys_machine ([line_id], [machine_no], [sort_order], "
             + "[remark]) output inserted.id values (?, ?, ?, ?)";
-    return dsl.resultQuery(sql, modelId, machineNo, sortOrder, remark).fetchOne(0, Long.class);
+    return dsl.resultQuery(sql, lineId, machineNo, sortOrder, remark).fetchOne(0, Long.class);
   }
 
-  public int updateMachine(Long id, Long modelId, String machineNo, int sortOrder, String remark) {
+  public int updateMachine(Long id, Long lineId, String machineNo, int sortOrder, String remark) {
     return dsl.update(SYS_MACHINE)
-        .set(SYS_MACHINE.MODEL_ID, modelId)
+        .set(SYS_MACHINE.LINE_ID, lineId)
         .set(SYS_MACHINE.MACHINE_NO, machineNo)
         .set(SYS_MACHINE.SORT_ORDER, sortOrder)
         .set(SYS_MACHINE.REMARK, remark)

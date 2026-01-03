@@ -29,12 +29,8 @@ public class SysMasterService {
     return sysMasterRepository.listLines(workshopId);
   }
 
-  public List<SysModel> listModels() {
-    return sysMasterRepository.listModels();
-  }
-
-  public List<SysMachine> listMachines(Long modelId) {
-    return sysMasterRepository.listMachines(modelId);
+  public List<SysMachine> listMachines(Long lineId) {
+    return sysMasterRepository.listMachines(lineId);
   }
 
   public List<SysAbnormalCategory> listAbnormalCategories() {
@@ -153,48 +149,17 @@ public class SysMasterService {
 
   @Transactional(rollbackFor = Throwable.class)
   public void deleteLine(Long id) {
+    if (sysMasterRepository.existsMachineByLine(id)) {
+      throw new BusinessException("线别下存在机台，无法删除");
+    }
     assertUpdated(sysMasterRepository.deleteLine(id), "线别");
-  }
-
-  @Transactional(rollbackFor = Throwable.class)
-  public Long createModel(SysSimpleRequest request) {
-    Long id =
-        sysMasterRepository.insertModel(
-            normalizeText(request.getName()),
-            normalizeText(request.getCode()),
-            defaultSortOrder(request.getSortOrder()),
-            normalizeText(request.getRemark()));
-    if (id == null) {
-      throw new BusinessException("机型创建失败");
-    }
-    return id;
-  }
-
-  @Transactional(rollbackFor = Throwable.class)
-  public void updateModel(Long id, SysSimpleRequest request) {
-    int updated =
-        sysMasterRepository.updateModel(
-            id,
-            normalizeText(request.getName()),
-            normalizeText(request.getCode()),
-            defaultSortOrder(request.getSortOrder()),
-            normalizeText(request.getRemark()));
-    assertUpdated(updated, "机型");
-  }
-
-  @Transactional(rollbackFor = Throwable.class)
-  public void deleteModel(Long id) {
-    if (sysMasterRepository.existsMachineByModel(id)) {
-      throw new BusinessException("机型下存在机台，无法删除");
-    }
-    assertUpdated(sysMasterRepository.deleteModel(id), "机型");
   }
 
   @Transactional(rollbackFor = Throwable.class)
   public Long createMachine(SysMachineRequest request) {
     Long id =
         sysMasterRepository.insertMachine(
-            request.getModelId(),
+            request.getLineId(),
             normalizeText(request.getMachineNo()),
             defaultSortOrder(request.getSortOrder()),
             normalizeText(request.getRemark()));
@@ -209,7 +174,7 @@ public class SysMasterService {
     int updated =
         sysMasterRepository.updateMachine(
             id,
-            request.getModelId(),
+            request.getLineId(),
             normalizeText(request.getMachineNo()),
             defaultSortOrder(request.getSortOrder()),
             normalizeText(request.getRemark()));
