@@ -1,6 +1,7 @@
 package org.jdk.project.service;
 
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -22,6 +23,7 @@ import org.jdk.project.dto.production.ProductionDailyResponse;
 import org.jdk.project.exception.BusinessException;
 import org.jdk.project.repository.ProductionDailyRepository;
 import org.jdk.project.repository.RepairWorkOrderRepository;
+import org.jdk.project.utils.excel.ColMergeStrategy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,6 +82,7 @@ public class ProductionDailyService {
     if (from == null || to == null) {
       throw new BusinessException("导出日期范围不能为空");
     }
+    // shift can be null to export all
     String shift = normalizeShiftNullable(query.getShift());
     List<ProductionDailyProcessViewDto> records =
         productionDailyRepository.fetchProcessesForExport(from, to, shift);
@@ -93,16 +96,16 @@ public class ProductionDailyService {
             .replaceAll("\\+", "%20");
     response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
+    // Merge Date (0) and Shift (1)
     EasyExcel.write(response.getOutputStream(), ProductionDailyExportDto.class)
+        .registerWriteHandler(new ColMergeStrategy(1, 0, 1)) // Header is row 0, data starts at 1
+        .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
         .sheet("每日产能")
         .doWrite(exportData);
   }
 
   private void saveProcess(
-      Long headerId,
-      LocalDate prodDate,
-      String shift,
-      ProductionDailyProcessRequest process) {
+      Long headerId, LocalDate prodDate, String shift, ProductionDailyProcessRequest process) {
     String processName = normalizeRequiredText(process.getProcessName(), "制程段不能为空");
     String productCode = normalizeRequiredText(process.getProductCode(), "生产料号不能为空");
     String seriesName = normalizeRequiredText(process.getSeriesName(), "系列不能为空");
@@ -198,7 +201,7 @@ public class ProductionDailyService {
   private ProductionDailyExportDto convertToExportDto(ProductionDailyProcessViewDto dto) {
     ProductionDailyExportDto export = new ProductionDailyExportDto();
     export.setProdDate(dto.getProdDate());
-    export.setShift("DAY".equals(dto.getShift()) ? "白班" : "夜班");
+    export.setShift("DAY".equals(dto.getShift()) ? "白" : "夜"); // Simplified as per image: "白", "夜"
     export.setProcessName(dto.getProcessName());
     export.setProductCode(dto.getProductCode());
     export.setSeriesName(dto.getSeriesName());
@@ -208,7 +211,12 @@ public class ProductionDailyService {
     export.setTargetOutput(dto.getTargetOutput());
     export.setActualOutput(dto.getActualOutput());
     export.setGap(dto.getGap());
-    export.setAchievementRate(dto.getAchievementRate());
+    // Format achievement rate
+    if (dto.getAchievementRate() != null) {
+      export.setAchievementRate(dto.getAchievementRate() + "%");
+    } else {
+      export.setAchievementRate("-");
+    }
     export.setDownMinutes(dto.getDownMinutes());
     export.setFa(dto.getFa());
     export.setCa(dto.getCa());

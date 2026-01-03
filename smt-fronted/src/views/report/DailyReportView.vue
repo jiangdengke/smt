@@ -117,7 +117,7 @@ const handleExport = () => {
   const params = new URLSearchParams({
     from: form.value.prodDate,
     to: form.value.prodDate,
-    shift: form.value.shift
+    // shift: form.value.shift // Removed to export all shifts
   }).toString()
   window.open(`${apiBase}/production-daily/export?${params}`, '_blank')
 }

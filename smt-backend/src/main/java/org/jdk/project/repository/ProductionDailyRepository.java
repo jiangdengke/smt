@@ -61,7 +61,8 @@ public class ProductionDailyRepository {
 
   public List<ProductionDailyProcessViewDto> fetchProcessesForExport(
       LocalDate from, LocalDate to, String shift) {
-    Condition condition = PRODUCTION_DAILY_HEADER.PROD_DATE.ge(from).and(PRODUCTION_DAILY_HEADER.PROD_DATE.le(to));
+    Condition condition =
+        PRODUCTION_DAILY_HEADER.PROD_DATE.ge(from).and(PRODUCTION_DAILY_HEADER.PROD_DATE.le(to));
     if (shift != null) {
       condition = condition.and(PRODUCTION_DAILY_HEADER.SHIFT.eq(shift));
     }

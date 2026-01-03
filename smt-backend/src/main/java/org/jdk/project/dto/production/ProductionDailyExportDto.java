@@ -22,7 +22,7 @@ public class ProductionDailyExportDto {
   private String processName;
 
   @ExcelProperty("生产料号")
-  @ColumnWidth(18)
+  @ColumnWidth(20)
   private String productCode;
 
   @ExcelProperty("系列")
@@ -33,15 +33,15 @@ public class ProductionDailyExportDto {
   @ColumnWidth(10)
   private BigDecimal ct;
 
-  @ExcelProperty("投入设备量")
-  @ColumnWidth(12)
+  @ExcelProperty("目前投入设备量")
+  @ColumnWidth(15)
   private Integer equipmentCount;
 
-  @ExcelProperty("投产时间(MIN)")
+  @ExcelProperty("投产时间(min)")
   @ColumnWidth(15)
   private Integer runMinutes;
 
-  @ExcelProperty("目标产能")
+  @ExcelProperty("目标产能(K)")
   @ColumnWidth(12)
   private Integer targetOutput;
 
@@ -53,12 +53,12 @@ public class ProductionDailyExportDto {
   @ColumnWidth(10)
   private Integer gap;
 
-  @ExcelProperty("达成率(%)")
+  @ExcelProperty("达成率")
   @ColumnWidth(12)
-  private BigDecimal achievementRate;
+  private String achievementRate; // Changed to String for % formatting
 
-  @ExcelProperty("理论Down机时间")
-  @ColumnWidth(15)
+  @ExcelProperty("理论Down机时间(min)")
+  @ColumnWidth(20)
   private Integer downMinutes;
 
   @ExcelProperty("FA")

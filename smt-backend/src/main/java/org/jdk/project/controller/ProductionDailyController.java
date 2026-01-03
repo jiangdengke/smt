@@ -30,13 +30,15 @@ public class ProductionDailyController {
   @ResponseStatus(HttpStatus.OK)
   @PostMapping("/batch")
   @PreAuthorize("hasRole('PRODUCTION')")
-  public ProductionDailyResponse saveBatch(@RequestBody @Valid ProductionDailyBatchRequest request) {
+  public ProductionDailyResponse saveBatch(
+      @RequestBody @Valid ProductionDailyBatchRequest request) {
     return productionDailyService.saveBatch(request);
   }
 
   @GetMapping("/export")
   @PreAuthorize("hasRole('PRODUCTION')")
-  public void export(HttpServletResponse response, ProductionDailyQueryDto query) throws IOException {
+  public void export(HttpServletResponse response, ProductionDailyQueryDto query)
+      throws IOException {
     productionDailyService.export(response, query);
   }
 }
