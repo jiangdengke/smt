@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jdk.project.dto.production.ProductionDailyBatchRequest;
@@ -22,7 +21,7 @@ import org.jdk.project.dto.production.ProductionDailyQueryDto;
 import org.jdk.project.dto.production.ProductionDailyResponse;
 import org.jdk.project.exception.BusinessException;
 import org.jdk.project.repository.ProductionDailyRepository;
-import org.jdk.project.repository.RepairWorkOrderRepository;
+import org.jdk.project.repository.RepairRecordRepository;
 import org.jdk.project.utils.excel.ColMergeStrategy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,15 +32,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductionDailyService {
 
   private final ProductionDailyRepository productionDailyRepository;
-  private final RepairWorkOrderRepository repairWorkOrderRepository;
+  private final RepairRecordRepository repairRecordRepository;
 
-  public ProductionDailyResponse get(LocalDate prodDate, String shift) {
+  public ProductionDailyResponse get(
+      LocalDate prodDate, String shift, String factoryName, String workshopName, String lineName) {
     String normalizedShift = normalizeShift(shift);
-    Long headerId = productionDailyRepository.findHeaderId(prodDate, normalizedShift);
+    String normalizedFactory = normalizeRequiredText(factoryName, "厂区不能为空");
+    String normalizedWorkshop = normalizeRequiredText(workshopName, "车间不能为空");
+    String normalizedLine = normalizeRequiredText(lineName, "线别不能为空");
+    Long headerId =
+        productionDailyRepository.findHeaderId(
+            prodDate, normalizedShift, normalizedFactory, normalizedWorkshop, normalizedLine);
     ProductionDailyResponse response = new ProductionDailyResponse();
     response.setHeaderId(headerId);
     response.setProdDate(prodDate);
     response.setShift(normalizedShift);
+    response.setFactoryName(normalizedFactory);
+    response.setWorkshopName(normalizedWorkshop);
+    response.setLineName(normalizedLine);
     if (headerId == null) {
       response.setProcesses(List.of());
       return response;
@@ -54,23 +62,36 @@ public class ProductionDailyService {
   public ProductionDailyResponse saveBatch(ProductionDailyBatchRequest request) {
     String shift = normalizeShift(request.getShift());
     LocalDate prodDate = request.getProdDate();
-    Long headerId = productionDailyRepository.findHeaderId(prodDate, shift);
+    String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
+    String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
+    String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
+
+    Long headerId =
+        productionDailyRepository.findHeaderId(
+            prodDate, shift, factoryName, workshopName, lineName);
     if (headerId == null) {
-      headerId = productionDailyRepository.insertHeader(prodDate, shift);
+      headerId =
+          productionDailyRepository.insertHeader(
+              prodDate, shift, factoryName, workshopName, lineName);
       if (headerId == null) {
-        headerId = productionDailyRepository.findHeaderId(prodDate, shift);
+        headerId =
+            productionDailyRepository.findHeaderId(
+                prodDate, shift, factoryName, workshopName, lineName);
       }
     }
     if (headerId == null) {
       throw new BusinessException("产能班别创建失败");
     }
     for (ProductionDailyProcessRequest process : request.getProcesses()) {
-      saveProcess(headerId, prodDate, shift, process);
+      saveProcess(headerId, prodDate, shift, factoryName, workshopName, lineName, process);
     }
     ProductionDailyResponse response = new ProductionDailyResponse();
     response.setHeaderId(headerId);
     response.setProdDate(prodDate);
     response.setShift(shift);
+    response.setFactoryName(factoryName);
+    response.setWorkshopName(workshopName);
+    response.setLineName(lineName);
     response.setProcesses(productionDailyRepository.fetchProcessesByHeaderId(headerId));
     return response;
   }
@@ -82,7 +103,6 @@ public class ProductionDailyService {
     if (from == null || to == null) {
       throw new BusinessException("导出日期范围不能为空");
     }
-    // shift can be null to export all
     String shift = normalizeShiftNullable(query.getShift());
     List<ProductionDailyProcessViewDto> records =
         productionDailyRepository.fetchProcessesForExport(from, to, shift);
@@ -96,16 +116,26 @@ public class ProductionDailyService {
             .replaceAll("\\+", "%20");
     response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
-    // Merge Date (0) and Shift (1)
     EasyExcel.write(response.getOutputStream(), ProductionDailyExportDto.class)
-        .registerWriteHandler(new ColMergeStrategy(1, 0, 1)) // Header is row 0, data starts at 1
+        .registerWriteHandler(new ColMergeStrategy(1, 0, 1))
         .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
         .sheet("每日产能")
         .doWrite(exportData);
   }
 
+  public List<ProductionDailyProcessViewDto> listRecords() {
+    return productionDailyRepository.fetchAllProcesses();
+  }
+
   private void saveProcess(
-      Long headerId, LocalDate prodDate, String shift, ProductionDailyProcessRequest process) {
+      Long headerId,
+      LocalDate prodDate,
+      String shift,
+      String factoryName,
+      String workshopName,
+      String lineName,
+      ProductionDailyProcessRequest process) {
+    String machineNo = normalizeRequiredText(process.getMachineNo(), "机台号不能为空");
     String processName = normalizeRequiredText(process.getProcessName(), "制程段不能为空");
     String productCode = normalizeRequiredText(process.getProductCode(), "生产料号不能为空");
     String seriesName = normalizeRequiredText(process.getSeriesName(), "系列不能为空");
@@ -134,6 +164,7 @@ public class ProductionDailyService {
       processId =
           productionDailyRepository.insertProcess(
               headerId,
+              machineNo,
               processName,
               productCode,
               seriesName,
@@ -152,6 +183,7 @@ public class ProductionDailyService {
           productionDailyRepository.updateProcess(
               processId,
               headerId,
+              machineNo,
               processName,
               productCode,
               seriesName,
@@ -172,36 +204,49 @@ public class ProductionDailyService {
     if (processId == null) {
       throw new BusinessException("产能明细保存失败");
     }
-    syncWorkOrder(processId, prodDate, shift, processName, productCode, seriesName, fa);
+    syncRepairRecord(processId, fa);
   }
 
-  private void syncWorkOrder(
-      Long processId,
-      LocalDate prodDate,
-      String shift,
-      String processName,
-      String productCode,
-      String seriesName,
-      String fa) {
+  private void syncRepairRecord(Long processId, String fa) {
     if (fa == null) {
-      repairWorkOrderRepository.closeActiveByProcessId(processId);
       return;
     }
-    var activeOrder = repairWorkOrderRepository.fetchActiveByProcessId(processId);
-    if (activeOrder == null) {
-      repairWorkOrderRepository.insertWorkOrder(
-          processId, prodDate, shift, processName, productCode, seriesName, fa);
+    Long existingId = repairRecordRepository.fetchIdBySourceProcessId(processId);
+    if (existingId != null) {
       return;
     }
-    if (!Objects.equals(activeOrder.getFa(), fa)) {
-      repairWorkOrderRepository.updateWorkOrderFa(activeOrder.getId(), fa);
+    ProductionDailyProcessViewDto snapshot =
+        productionDailyRepository.fetchProcessSnapshot(processId);
+    if (snapshot == null) {
+      throw new BusinessException("产能明细不存在");
     }
+    repairRecordRepository.insertRecord(
+        snapshot.getProdDate().atStartOfDay(),
+        snapshot.getShift(),
+        snapshot.getFactoryName(),
+        snapshot.getWorkshopName(),
+        snapshot.getLineName(),
+        snapshot.getMachineNo(),
+        null,
+        null,
+        null,
+        null,
+        snapshot.getFa(),
+        null,
+        false,
+        null,
+        null,
+        processId);
   }
 
   private ProductionDailyExportDto convertToExportDto(ProductionDailyProcessViewDto dto) {
     ProductionDailyExportDto export = new ProductionDailyExportDto();
     export.setProdDate(dto.getProdDate());
     export.setShift("DAY".equals(dto.getShift()) ? "白" : "夜"); // Simplified as per image: "白", "夜"
+    export.setFactoryName(dto.getFactoryName());
+    export.setWorkshopName(dto.getWorkshopName());
+    export.setLineName(dto.getLineName());
+    export.setMachineNo(dto.getMachineNo());
     export.setProcessName(dto.getProcessName());
     export.setProductCode(dto.getProductCode());
     export.setSeriesName(dto.getSeriesName());

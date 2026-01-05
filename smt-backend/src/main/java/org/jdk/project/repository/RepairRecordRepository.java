@@ -90,13 +90,14 @@ public class RepairRecordRepository {
       String solution,
       Boolean isFixed,
       LocalDateTime fixedAt,
-      Integer repairMinutes) {
+      Integer repairMinutes,
+      Long sourceProcessId) {
     String sql =
         "insert into smtBackend.repair_record ([occur_at], [shift], [factory_name],"
             + " [workshop_name], [line_name], [machine_no], [abnormal_category_name],"
             + " [abnormal_type_name], [team_name], [responsible_person_name], [abnormal_desc],"
-            + " [solution], [is_fixed], [fixed_at], [repair_minutes]) output inserted.id values (?,"
-            + " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + " [solution], [is_fixed], [fixed_at], [repair_minutes], [source_process_id])"
+            + " output inserted.id values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     return dsl.resultQuery(
             sql,
             occurAt,
@@ -113,8 +114,29 @@ public class RepairRecordRepository {
             solution,
             isFixed,
             fixedAt,
-            repairMinutes)
+            repairMinutes,
+            sourceProcessId)
         .fetchOne(0, Long.class);
+  }
+
+  public Long fetchIdBySourceProcessId(Long sourceProcessId) {
+    if (sourceProcessId == null) {
+      return null;
+    }
+    return dsl.select(REPAIR_RECORD.ID)
+        .from(REPAIR_RECORD)
+        .where(REPAIR_RECORD.SOURCE_PROCESS_ID.eq(sourceProcessId))
+        .fetchOne(REPAIR_RECORD.ID);
+  }
+
+  public Long fetchSourceProcessId(Long recordId) {
+    if (recordId == null) {
+      return null;
+    }
+    return dsl.select(REPAIR_RECORD.SOURCE_PROCESS_ID)
+        .from(REPAIR_RECORD)
+        .where(REPAIR_RECORD.ID.eq(recordId))
+        .fetchOne(REPAIR_RECORD.SOURCE_PROCESS_ID);
   }
 
   public int updateRecord(

@@ -1,50 +1,109 @@
 <script setup>
 import { ref, computed, h, watch, onMounted } from 'vue'
-import { useMessage, NInput, NInputNumber, NSelect, NButton, NTag, NSpace, NCard, NDataTable, NSwitch } from 'naive-ui'
+import { useMessage, NInput, NInputNumber, NSelect, NButton, NSpace, NCard, NDataTable } from 'naive-ui'
 import { getProductionDaily, saveProductionDailyBatch } from '../../api/production'
+import { useMasterDataStore } from '../../stores/masterData'
 import { formatDate } from '../../utils/format'
-import { SaveOutlined, AddOutlined, DeleteOutlineOutlined, EditOutlined, DownloadOutlined, CloseOutlined, AutoAwesomeOutlined } from '@vicons/material'
+import { SaveOutlined, AddOutlined, DeleteOutlineOutlined } from '@vicons/material'
 import { NIcon } from 'naive-ui'
 
 const message = useMessage()
-const apiBase = import.meta.env.VITE_API_BASE || '/api'
+const masterStore = useMasterDataStore()
+const DEFAULT_ROW_COUNT = 3
 
 const shiftOptions = [
   { label: '白班', value: 'DAY' },
   { label: '夜班', value: 'NIGHT' }
 ]
 
-// 预设的标准制程段，用于快速填充
-const STANDARD_PROCESSES = ['印刷', 'SPI', '贴片', '回流焊', 'AOI']
-
 const form = ref({
   prodDate: formatDate(new Date().toISOString()),
-  shift: 'DAY'
+  shift: 'DAY',
+  factoryId: null,
+  workshopId: null,
+  lineId: null
 })
+
+const filterWorkshops = computed(() =>
+  form.value.factoryId
+    ? masterStore.workshops.filter((item) => item.factoryId === form.value.factoryId)
+    : masterStore.workshops
+)
+
+const filterLines = computed(() =>
+  form.value.workshopId
+    ? masterStore.lines.filter((item) => item.workshopId === form.value.workshopId)
+    : masterStore.lines
+)
+
+const lineMachineOptions = computed(() =>
+  form.value.lineId
+    ? masterStore.machines.filter((item) => item.lineId === form.value.lineId)
+    : []
+)
 
 const loading = ref(false)
 const saving = ref(false)
 const isEditing = ref(false) // 控制查看/编辑模式
+const modalOpen = ref(false)
 const rows = ref([]) // 统一的数据源
+const masterLoaded = ref(false)
+
+const ensureMasterData = async () => {
+  if (masterLoaded.value) return
+  await masterStore.loadAll()
+  masterLoaded.value = true
+}
+
+const getNameById = (list, id, field = 'name') => {
+  if (!id) return null
+  const item = list.find((entry) => entry.id === id)
+  return item ? item[field] : null
+}
+
+const getIdByMachineNo = (list, no) => {
+  if (!no || !list) return null
+  const item = list.find(i => i.machineNo === no)
+  return item ? item.id : null
+}
+
+const resolveRowName = (row, list, idKey, nameKey, field = 'name') => {
+  return getNameById(list, row[idKey], field) || normalizeText(row[nameKey])
+}
 
 function renderIcon(icon) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
+const ensureDefaultRows = () => {
+  if (rows.value.length > 0) return
+  rows.value = Array.from({ length: DEFAULT_ROW_COUNT }, () => createRow())
+}
+
 // 核心加载逻辑
 const loadData = async () => {
-  if (!form.value.prodDate || !form.value.shift) return
+  if (!form.value.prodDate || !form.value.shift || !form.value.factoryId || !form.value.workshopId || !form.value.lineId) {
+    return
+  }
   loading.value = true
   try {
-    const res = await getProductionDaily(form.value.prodDate, form.value.shift)
+    const factoryName = getNameById(masterStore.factories, form.value.factoryId)
+    const workshopName = getNameById(masterStore.workshops, form.value.workshopId)
+    const lineName = getNameById(masterStore.lines, form.value.lineId)
+    const res = await getProductionDaily(
+      form.value.prodDate,
+      form.value.shift,
+      factoryName,
+      workshopName,
+      lineName
+    )
     const processes = res?.processes || []
     
     // 映射数据
     rows.value = processes.map(mapProcessToRow)
     
-    // 如果没有数据，且处于编辑模式，或者刚切换日期，自动退出编辑模式
-    if (rows.value.length === 0 && !isEditing.value) {
-      // 可以在这里提示暂无数据
+    if (rows.value.length === 0 && modalOpen.value) {
+      ensureDefaultRows()
     }
   } catch (error) {
     message.error(error.message || '加载数据失败')
@@ -53,96 +112,77 @@ const loadData = async () => {
   }
 }
 
-// 切换到编辑模式
-const enterEditMode = () => {
-  if (rows.value.length === 0) {
-    // 如果是空的，自动加一行
-    addRow()
-  }
+const openForm = async () => {
+  modalOpen.value = true
   isEditing.value = true
+  await ensureMasterData()
+  if (
+    form.value.prodDate &&
+    form.value.shift &&
+    form.value.factoryId &&
+    form.value.workshopId &&
+    form.value.lineId
+  ) {
+    await loadData()
+  }
+  ensureDefaultRows()
 }
 
-// 取消编辑（重新加载数据）
-const cancelEdit = () => {
+const closeForm = () => {
+  modalOpen.value = false
   isEditing.value = false
-  loadData()
+  rows.value = []
 }
 
 // 保存逻辑
 const handleSave = async () => {
-  if (!form.value.prodDate || !form.value.shift) {
-    message.warning('请选择日期和班别')
+  if (!form.value.prodDate || !form.value.shift || !form.value.factoryId || !form.value.workshopId || !form.value.lineId) {
+    message.warning('请完善表头信息（日期、班别、厂区、车间、线别）')
     return
   }
   if (!validateRows(rows.value)) return
   
   saving.value = true
   try {
+    const factoryName = getNameById(masterStore.factories, form.value.factoryId)
+    const workshopName = getNameById(masterStore.workshops, form.value.workshopId)
+    const lineName = getNameById(masterStore.lines, form.value.lineId)
     const payload = {
       prodDate: form.value.prodDate,
       shift: form.value.shift,
+      factoryName,
+      workshopName,
+      lineName,
       processes: rows.value
         .filter((row) => !isRowEmpty(row))
-        .map((row) => ({
-          id: row.id || null,
-          processName: normalizeText(row.processName),
-          productCode: normalizeText(row.productCode),
-          seriesName: normalizeText(row.seriesName),
-          ct: row.ct,
-          equipmentCount: row.equipmentCount,
-          runMinutes: row.runMinutes,
-          targetOutput: row.targetOutput,
-          actualOutput: row.actualOutput,
-          downMinutes: row.downMinutes,
-          fa: normalizeText(row.fa),
-          ca: normalizeText(row.ca)
-        }))
+        .map((row) => {
+          const machineNo = resolveRowName(row, masterStore.machines, 'machineId', 'machineNo', 'machineNo')
+          return {
+            id: row.id || null,
+            machineNo,
+            processName: normalizeText(row.processName),
+            productCode: normalizeText(row.productCode),
+            seriesName: normalizeText(row.seriesName),
+            ct: row.ct,
+            equipmentCount: row.equipmentCount,
+            runMinutes: row.runMinutes,
+            targetOutput: row.targetOutput,
+            actualOutput: row.actualOutput,
+            downMinutes: row.downMinutes,
+            fa: normalizeText(row.fa),
+            ca: normalizeText(row.ca)
+          }
+        })
     }
     const res = await saveProductionDailyBatch(payload)
     rows.value = (res?.processes || []).map(mapProcessToRow)
     message.success('保存成功')
-    isEditing.value = false
+    closeForm()
   } catch (error) {
     message.error(error.message || '保存失败')
   } finally {
     saving.value = false
   }
-}
-
-const handleExport = () => {
-  if (!form.value.prodDate) {
-    message.warning('请选择日期')
-    return
-  }
-  const params = new URLSearchParams({
-    from: form.value.prodDate,
-    to: form.value.prodDate,
-    // shift: form.value.shift // Removed to export all shifts
-  }).toString()
-  window.open(`${apiBase}/production-daily/export?${params}`, '_blank')
-}
-
-// 快捷操作：一键填充标准制程
-const fillStandardProcesses = () => {
-  // 检查是否已经是标准顺序，避免重复添加
-  const existingNames = new Set(rows.value.map(r => r.processName))
-  const newRows = []
-  
-  STANDARD_PROCESSES.forEach(name => {
-    if (!existingNames.has(name)) {
-      const row = createRow()
-      row.processName = name
-      newRows.push(row)
-    }
-  })
-  
-  if (newRows.length === 0) {
-    message.info('标准制程已存在，无需填充')
-    return
-  }
-  
-  rows.value = [...rows.value, ...newRows]
-  message.success(`已添加 ${newRows.length} 个标准制程`)
 }
 
 // 行操作
@@ -179,6 +219,25 @@ const renderCell = (row, key, placeholder, type = 'text', numberProps = {}) => {
   })
 }
 
+const renderMachineSelect = (row) => {
+  if (!isEditing.value) {
+    return row.machineNo || '-'
+  }
+  return h(NSelect, {
+    value: row.machineId,
+    options: lineMachineOptions.value,
+    labelField: 'machineNo',
+    valueField: 'id',
+    placeholder: '机台号',
+    size: 'small',
+    disabled: !form.value.lineId,
+    onUpdateValue: (v) => {
+      row.machineId = v
+      row.machineNo = getNameById(lineMachineOptions.value, v, 'machineNo') || ''
+    }
+  })
+}
+
 const columns = computed(() => [
   {
     title: '基础信息',
@@ -187,21 +246,28 @@ const columns = computed(() => [
       {
         title: '制程段',
         key: 'processName',
-        width: 120,
+        width: 100,
         fixed: 'left', // 固定列
         render: (row) => renderCell(row, 'processName', '如: 印刷')
       },
       {
+        title: '机台号',
+        key: 'machineNo',
+        width: 120,
+        fixed: 'left',
+        render: (row) => renderMachineSelect(row)
+      },
+      {
         title: '料号',
         key: 'productCode',
-        width: 140,
+        width: 120,
         fixed: 'left',
         render: (row) => renderCell(row, 'productCode', '生产料号')
       },
       {
         title: '系列',
         key: 'seriesName',
-        width: 100,
+        width: 80,
         render: (row) => renderCell(row, 'seriesName', '系列')
       }
     ]
@@ -317,20 +383,56 @@ const columns = computed(() => [
 ])
 
 watch(
-  () => [form.value.prodDate, form.value.shift],
+  () => [form.value.prodDate, form.value.shift, form.value.factoryId, form.value.workshopId, form.value.lineId],
   () => {
-    isEditing.value = false // 切换日期自动退出编辑
+    if (!modalOpen.value) return
     loadData()
   }
 )
 
-onMounted(loadData)
+const clearRowMachines = () => {
+  rows.value.forEach((row) => {
+    row.machineId = null
+    row.machineNo = ''
+  })
+}
+
+watch(
+  () => form.value.factoryId,
+  () => {
+    form.value.workshopId = null
+    form.value.lineId = null
+    clearRowMachines()
+  }
+)
+
+watch(
+  () => form.value.workshopId,
+  () => {
+    form.value.lineId = null
+    clearRowMachines()
+  }
+)
+
+watch(
+  () => form.value.lineId,
+  () => {
+    clearRowMachines()
+  }
+)
+
+onMounted(async () => {
+  await masterStore.loadAll()
+  masterLoaded.value = true
+})
 
 // --- Helpers ---
 
 function createRow() {
   return {
     id: null,
+    machineId: null,
+    machineNo: '',
     processName: '',
     productCode: '',
     seriesName: '',
@@ -348,6 +450,8 @@ function createRow() {
 function mapProcessToRow(item) {
   return {
     id: item.id || null,
+    machineId: getIdByMachineNo(masterStore.machines, item.machineNo),
+    machineNo: item.machineNo || '',
     processName: item.processName || '',
     productCode: item.productCode || '',
     seriesName: item.seriesName || '',
@@ -379,7 +483,11 @@ function normalizeText(value) {
 }
 
 function isRowEmpty(row) {
-  return !normalizeText(row.processName) && !normalizeText(row.productCode)
+  return !normalizeText(row.processName)
+    && !normalizeText(row.productCode)
+    && !normalizeText(row.seriesName)
+    && !row.machineId
+    && !normalizeText(row.machineNo)
 }
 
 function validateRows(rowList) {
@@ -390,8 +498,21 @@ function validateRows(rowList) {
   }
   // 简单校验
   for (let i = 0; i < targetRows.length; i++) {
-    if (!targetRows[i].processName) {
-      message.warning(`第 ${i+1} 行缺少制程段名称`)
+    const row = targetRows[i]
+    if (!resolveRowName(row, masterStore.machines, 'machineId', 'machineNo', 'machineNo')) {
+      message.warning(`第 ${i + 1} 行缺少机台号`)
+      return false
+    }
+    if (!normalizeText(row.processName)) {
+      message.warning(`第 ${i + 1} 行缺少制程段名称`)
+      return false
+    }
+    if (!normalizeText(row.productCode)) {
+      message.warning(`第 ${i + 1} 行缺少生产料号`)
+      return false
+    }
+    if (!normalizeText(row.seriesName)) {
+      message.warning(`第 ${i + 1} 行缺少系列`)
       return false
     }
   }
@@ -401,92 +522,119 @@ function validateRows(rowList) {
 
 <template>
   <div class="daily-report-page">
-    <n-page-header title="每日产能录入" subtitle="生产绩效与异常闭环" style="margin-bottom: 16px">
+    <n-page-header title="每日产能录入" subtitle="点击新增后填写制程段明细" style="margin-bottom: 16px">
       <template #extra>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <!-- 筛选区 -->
-          <n-card size="small" style="padding: 4px 12px; border-radius: 4px;">
-            <n-space align="center">
-              <span style="font-size: 13px; color: gray;">日期:</span>
-              <n-date-picker
-                v-model:formatted-value="form.prodDate"
-                value-format="yyyy-MM-dd"
-                type="date"
-                size="small"
-                :disabled="isEditing"
-                style="width: 140px"
-              />
-              <span style="font-size: 13px; color: gray; margin-left: 8px;">班别:</span>
-              <n-select
-                v-model:value="form.shift"
-                :options="shiftOptions"
-                size="small"
-                :disabled="isEditing"
-                style="width: 80px"
-              />
-            </n-space>
-          </n-card>
-
-          <!-- 操作区 -->
-          <template v-if="!isEditing">
-            <n-button type="primary" @click="enterEditMode">
-              <template #icon><n-icon :component="EditOutlined" /></template>
-              进入编辑
-            </n-button>
-            <n-button secondary @click="handleExport">
-              <template #icon><n-icon :component="DownloadOutlined" /></template>
-              导出Excel
-            </n-button>
-          </template>
-
-          <template v-else>
-            <n-button type="primary" color="#18a058" @click="handleSave" :loading="saving">
-              <template #icon><n-icon :component="SaveOutlined" /></template>
-              保存修改
-            </n-button>
-            <n-button @click="cancelEdit">
-              <template #icon><n-icon :component="CloseOutlined" /></template>
-              取消
-            </n-button>
-          </template>
-        </div>
+        <n-button type="primary" @click="openForm">
+          新增每日产能
+        </n-button>
       </template>
     </n-page-header>
 
-    <!-- 编辑工具栏 (仅编辑模式显示) -->
-    <n-card v-if="isEditing" size="small" style="margin-bottom: 12px; background-color: #f9f9f9;">
-      <n-space justify="space-between" align="center">
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <n-button size="small" dashed @click="addRow">
-            <template #icon><n-icon :component="AddOutlined" /></template>
-            添加一行
-          </n-button>
-          <n-button size="small" dashed @click="fillStandardProcesses">
-            <template #icon><n-icon :component="AutoAwesomeOutlined" /></template>
-            一键填充标准制程
-          </n-button>
-        </div>
-        <div style="font-size: 12px; color: #666;">
-          <n-icon :component="AutoAwesomeOutlined" style="margin-right: 4px; vertical-align: bottom;" />
-          提示：GAP 为负数时请务必填写异常描述 (FA)
-        </div>
-      </n-space>
+    <n-card>
+      请在弹出的表单中选择日期、班别、厂区、车间、线别，并填写各制程段的产能数据。
     </n-card>
 
-    <!-- 主表格 -->
-    <n-card content-style="padding: 0;">
-      <n-data-table
-        :columns="columns"
-        :data="rows"
-        :loading="loading"
-        :single-column="true"
-        :single-line="false"
-        size="small"
-        :scroll-x="1500"
-        style="height: calc(100vh - 220px)"
-        flex-height
-      />
-    </n-card>
+    <n-modal
+      v-model:show="modalOpen"
+      preset="card"
+      style="width: 1200px;"
+      @after-leave="closeForm"
+    >
+      <template #header>
+        每日产能录入
+      </template>
+
+      <n-card size="small" style="margin-bottom: 12px;">
+        <n-space align="center" wrap>
+          <span style="font-size: 13px; color: gray;">日期:</span>
+          <n-date-picker
+            v-model:formatted-value="form.prodDate"
+            value-format="yyyy-MM-dd"
+            type="date"
+            size="small"
+            :disabled="saving"
+            style="width: 130px"
+          />
+          <span style="font-size: 13px; color: gray;">班别:</span>
+          <n-select
+            v-model:value="form.shift"
+            :options="shiftOptions"
+            size="small"
+            :disabled="saving"
+            style="width: 100px"
+          />
+          <span style="font-size: 13px; color: gray;">厂区:</span>
+          <n-select
+            v-model:value="form.factoryId"
+            :options="masterStore.factories"
+            label-field="name"
+            value-field="id"
+            size="small"
+            :disabled="saving"
+            style="width: 140px"
+            placeholder="请选择"
+          />
+          <span style="font-size: 13px; color: gray;">车间:</span>
+          <n-select
+            v-model:value="form.workshopId"
+            :options="filterWorkshops"
+            label-field="name"
+            value-field="id"
+            size="small"
+            :disabled="saving"
+            style="width: 140px"
+            placeholder="请选择"
+          />
+          <span style="font-size: 13px; color: gray;">线别:</span>
+          <n-select
+            v-model:value="form.lineId"
+            :options="filterLines"
+            label-field="name"
+            value-field="id"
+            size="small"
+            :disabled="saving"
+            style="width: 140px"
+            placeholder="请选择"
+          />
+        </n-space>
+      </n-card>
+
+      <n-card size="small" style="margin-bottom: 12px; background-color: #f9f9f9;">
+        <n-space justify="space-between" align="center">
+          <n-button size="small" dashed @click="addRow">
+            <template #icon><n-icon :component="AddOutlined" /></template>
+            新增制程段
+          </n-button>
+          <div style="font-size: 12px; color: #666;">
+            提示：GAP 为负数时请务必填写异常描述 (FA)
+          </div>
+        </n-space>
+      </n-card>
+
+      <n-card content-style="padding: 0;">
+        <n-data-table
+          :columns="columns"
+          :data="rows"
+          :loading="loading"
+          :single-column="true"
+          :single-line="false"
+          size="small"
+          :scroll-x="2000"
+          style="height: 520px"
+          flex-height
+        />
+      </n-card>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="closeForm">取消</n-button>
+          <n-button type="primary" color="#18a058" @click="handleSave" :loading="saving">
+            <template #icon><n-icon :component="SaveOutlined" /></template>
+            保存
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 

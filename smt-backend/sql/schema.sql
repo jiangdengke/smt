@@ -8,7 +8,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'smtBackend')
 -- 说明
 -- 1) 维修记录与维护表解耦，repair_record 仅保存名称快照，不设外键。
 -- 2) 维护表用于下拉联动：厂区 → 车间 → 线别 → 机台号。
--- 3) 每日产能与维修工单用于生产端与维修端的业务闭环。
+-- 3) 每日产能用于生产端记录，异常可同步生成维修记录。
 
 -- 用户表：系统账号信息，用于登录与权限管理
 CREATE TABLE smtBackend.[user]
@@ -74,10 +74,11 @@ CREATE TABLE smtBackend.repair_record
     [workshop_name]         NVARCHAR(255) NOT NULL, -- 车间名称快照（来源维护表）
     [line_name]             NVARCHAR(255) NOT NULL, -- 线别名称快照（来源维护表）
     [machine_no]            NVARCHAR(64)  NOT NULL, -- 机台号快照（来源维护表）
-    [abnormal_category_name] NVARCHAR(255) NOT NULL, -- 异常类别名称快照
-    [abnormal_type_name]    NVARCHAR(255) NOT NULL, -- 异常分类名称快照
-    [team_name]             NVARCHAR(255) NOT NULL, -- 组别名称快照
-    [responsible_person_name] NVARCHAR(255) NOT NULL, -- 责任人名称快照
+    [source_process_id]     BIGINT       NULL, -- 来源制程段ID（production_daily_process.id）
+    [abnormal_category_name] NVARCHAR(255) NULL, -- 异常类别名称快照（生产自动记录可为空）
+    [abnormal_type_name]    NVARCHAR(255) NULL, -- 异常分类名称快照（生产自动记录可为空）
+    [team_name]             NVARCHAR(255) NULL, -- 组别名称快照（生产自动记录可为空）
+    [responsible_person_name] NVARCHAR(255) NULL, -- 责任人名称快照（生产自动记录可为空）
     [abnormal_desc]         NVARCHAR(2000) NOT NULL, -- 异常描述（必填）
     [solution]              NVARCHAR(2000) NULL, -- 解决对策（可为空）
     [is_fixed]              BIT           NOT NULL DEFAULT 0, -- 是否已修复：0未修复/1已修复
@@ -93,6 +94,9 @@ CREATE TABLE smtBackend.repair_record
         CHECK ([repair_minutes] IS NULL OR [repair_minutes] >= 0)
 );
 
+CREATE INDEX [IX_repair_record_source_process]
+    ON smtBackend.repair_record ([source_process_id]);
+
 -- 维修记录-人员关系表：同一记录可对应多个维修人
 CREATE TABLE smtBackend.repair_record_person
 (
@@ -104,16 +108,20 @@ CREATE TABLE smtBackend.repair_record_person
         FOREIGN KEY ([repair_record_id]) REFERENCES smtBackend.repair_record([id])
 );
 
--- 每日产能与维修工单表
--- 每日产能表头：同一日期+班别唯一
+-- 每日产能表
+-- 每日产能表头：同一日期+班别+厂区+车间+线别唯一
 CREATE TABLE smtBackend.production_daily_header
 (
-    [id]        BIGINT      NOT NULL IDENTITY(1,1), -- 主键
-    [prod_date] DATE        NOT NULL, -- 产能日期
-    [shift]     NVARCHAR(8) NOT NULL, -- 班别：DAY=白班，NIGHT=夜班
+    [id]            BIGINT      NOT NULL IDENTITY(1,1), -- 主键
+    [prod_date]     DATE        NOT NULL, -- 产能日期
+    [shift]         NVARCHAR(8) NOT NULL, -- 班别：DAY=白班，NIGHT=夜班
+    [factory_name]  NVARCHAR(255) NOT NULL, -- 厂区名称
+    [workshop_name] NVARCHAR(255) NOT NULL, -- 车间名称
+    [line_name]     NVARCHAR(255) NOT NULL, -- 线别名称
     CONSTRAINT [PK_production_daily_header] PRIMARY KEY ([id]),
     CONSTRAINT [CK_production_daily_header_shift] CHECK ([shift] IN ('DAY', 'NIGHT')),
-    CONSTRAINT [UQ_production_daily_header_date_shift] UNIQUE ([prod_date], [shift])
+    CONSTRAINT [UQ_production_daily_header_key]
+        UNIQUE ([prod_date], [shift], [factory_name], [workshop_name], [line_name])
 );
 
 -- 每日产能明细：一个表头对应多条制程段数据
@@ -121,6 +129,7 @@ CREATE TABLE smtBackend.production_daily_process
 (
     [id]               BIGINT        NOT NULL IDENTITY(1,1), -- 主键
     [header_id]        BIGINT        NOT NULL, -- 表头ID（关联 production_daily_header）
+    [machine_no]       NVARCHAR(64)  NOT NULL, -- 机台号（生产端填写）
     [process_name]     NVARCHAR(128) NOT NULL, -- 制程段名称
     [product_code]     NVARCHAR(128) NOT NULL, -- 生产料号
     [series_name]      NVARCHAR(128) NOT NULL, -- 系列/机种系列
@@ -137,33 +146,9 @@ CREATE TABLE smtBackend.production_daily_process
     CONSTRAINT [PK_production_daily_process] PRIMARY KEY ([id]),
     CONSTRAINT [FK_production_daily_process_header]
         FOREIGN KEY ([header_id]) REFERENCES smtBackend.production_daily_header([id]),
-    CONSTRAINT [UQ_production_daily_process_header_name] UNIQUE ([header_id], [process_name])
+    CONSTRAINT [UQ_production_daily_process_key]
+        UNIQUE ([header_id], [process_name], [machine_no])
 );
-
--- 维修工单：由生产端 FA 触发，维修端回填 CA 后结单
-CREATE TABLE smtBackend.repair_work_order
-(
-    [id]                BIGINT        NOT NULL IDENTITY(1,1), -- 主键
-    [source_process_id] BIGINT        NOT NULL, -- 来源制程段ID
-    [prod_date]         DATE          NULL, -- 日期快照
-    [shift]             NVARCHAR(8)   NULL, -- 班别快照
-    [process_name]      NVARCHAR(128) NULL, -- 制程段快照
-    [product_code]      NVARCHAR(128) NULL, -- 生产料号快照
-    [series_name]       NVARCHAR(128) NULL, -- 系列快照
-    [fa]                NVARCHAR(2000) NOT NULL, -- 异常描述(FA)
-    [status]            NVARCHAR(16)  NOT NULL DEFAULT N'OPEN', -- 状态：OPEN/IN_PROGRESS/DONE
-    [created_at]        DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(), -- 创建时间(UTC)
-    [updated_at]        DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(), -- 更新时间(UTC)
-    CONSTRAINT [PK_repair_work_order] PRIMARY KEY ([id]),
-    CONSTRAINT [CK_repair_work_order_status] CHECK ([status] IN ('OPEN', 'IN_PROGRESS', 'DONE'))
-);
-
--- 工单索引：按状态/来源制程段快速筛选
-CREATE INDEX [IX_repair_work_order_status]
-    ON smtBackend.repair_work_order ([status]);
-
-CREATE INDEX [IX_repair_work_order_source_process]
-    ON smtBackend.repair_work_order ([source_process_id]);
 
 -- 系统维护主数据表（下拉选项）
 -- 区域组织：厂区 → 车间 → 线别 → 机台号

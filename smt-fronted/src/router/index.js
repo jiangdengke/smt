@@ -19,12 +19,6 @@ const routes = [
         meta: { permission: 'repair:read' }
       },
       {
-        path: 'work-order',
-        name: 'WorkOrder',
-        component: () => import('../views/repair/WorkOrderView.vue'),
-        meta: { permission: 'repair:read' }
-      },
-      {
         path: 'analytics',
         name: 'Analytics',
         component: () => import('../views/repair/AnalyticsView.vue'),
@@ -37,8 +31,8 @@ const routes = [
         meta: { permission: 'repair:read' }
       },
       {
-        path: 'repair-report',
-        name: 'RepairDailyReport',
+        path: 'repair-attendance',
+        name: 'RepairAttendance',
         component: () => import('../views/NotImplementedView.vue'),
         meta: { permission: 'repair:read' }
       },
@@ -53,6 +47,12 @@ const routes = [
         name: 'Report',
         component: () => import('../views/report/DailyReportView.vue'),
         meta: { role: 'PRODUCTION' } // Or permission report:read
+      },
+      {
+        path: 'report-records',
+        name: 'ReportRecords',
+        component: () => import('../views/report/ProductionRecordsView.vue'),
+        meta: { role: 'PRODUCTION' }
       },
       {
         path: 'sys',

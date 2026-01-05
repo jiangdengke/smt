@@ -13,5 +13,11 @@ public class ProductionDailyResponse {
 
   private String shift;
 
+  private String factoryName;
+
+  private String workshopName;
+
+  private String lineName;
+
   private List<ProductionDailyProcessViewDto> processes;
 }

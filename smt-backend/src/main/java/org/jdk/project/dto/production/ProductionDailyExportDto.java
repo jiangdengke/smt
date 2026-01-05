@@ -17,6 +17,22 @@ public class ProductionDailyExportDto {
   @ColumnWidth(8)
   private String shift;
 
+  @ExcelProperty("厂区")
+  @ColumnWidth(12)
+  private String factoryName;
+
+  @ExcelProperty("车间")
+  @ColumnWidth(12)
+  private String workshopName;
+
+  @ExcelProperty("线别")
+  @ColumnWidth(12)
+  private String lineName;
+
+  @ExcelProperty("机台号")
+  @ColumnWidth(12)
+  private String machineNo;
+
   @ExcelProperty("制程段")
   @ColumnWidth(15)
   private String processName;

@@ -4,9 +4,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jdk.project.dto.production.ProductionDailyBatchRequest;
 import org.jdk.project.dto.production.ProductionDailyQueryDto;
+import org.jdk.project.dto.production.ProductionDailyProcessViewDto;
 import org.jdk.project.dto.production.ProductionDailyResponse;
 import org.jdk.project.service.ProductionDailyService;
 import org.springframework.http.HttpStatus;
@@ -23,8 +25,13 @@ public class ProductionDailyController {
 
   @GetMapping
   @PreAuthorize("hasRole('PRODUCTION')")
-  public ProductionDailyResponse get(@RequestParam LocalDate prodDate, @RequestParam String shift) {
-    return productionDailyService.get(prodDate, shift);
+  public ProductionDailyResponse get(
+      @RequestParam LocalDate prodDate,
+      @RequestParam String shift,
+      @RequestParam String factoryName,
+      @RequestParam String workshopName,
+      @RequestParam String lineName) {
+    return productionDailyService.get(prodDate, shift, factoryName, workshopName, lineName);
   }
 
   @ResponseStatus(HttpStatus.OK)
@@ -40,5 +47,11 @@ public class ProductionDailyController {
   public void export(HttpServletResponse response, ProductionDailyQueryDto query)
       throws IOException {
     productionDailyService.export(response, query);
+  }
+
+  @GetMapping("/records")
+  @PreAuthorize("hasRole('PRODUCTION')")
+  public List<ProductionDailyProcessViewDto> listRecords() {
+    return productionDailyService.listRecords();
   }
 }

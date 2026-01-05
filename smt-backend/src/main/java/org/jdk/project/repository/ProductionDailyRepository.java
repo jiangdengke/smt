@@ -25,37 +25,32 @@ public class ProductionDailyRepository {
 
   private final DSLContext dsl;
 
-  public Long findHeaderId(LocalDate prodDate, String shift) {
+  public Long findHeaderId(
+      LocalDate prodDate, String shift, String factoryName, String workshopName, String lineName) {
     return dsl.select(PRODUCTION_DAILY_HEADER.ID)
         .from(PRODUCTION_DAILY_HEADER)
         .where(PRODUCTION_DAILY_HEADER.PROD_DATE.eq(prodDate))
         .and(PRODUCTION_DAILY_HEADER.SHIFT.eq(shift))
+        .and(PRODUCTION_DAILY_HEADER.FACTORY_NAME.eq(factoryName))
+        .and(PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.eq(workshopName))
+        .and(PRODUCTION_DAILY_HEADER.LINE_NAME.eq(lineName))
         .fetchOne(PRODUCTION_DAILY_HEADER.ID);
   }
 
-  public Long insertHeader(LocalDate prodDate, String shift) {
+  public Long insertHeader(
+      LocalDate prodDate, String shift, String factoryName, String workshopName, String lineName) {
     String sql =
-        "insert into smtBackend.production_daily_header ([prod_date], [shift]) "
-            + "output inserted.id values (?, ?)";
-    return dsl.resultQuery(sql, prodDate, shift).fetchOne(0, Long.class);
+        "insert into smtBackend.production_daily_header "
+            + "([prod_date], [shift], [factory_name], [workshop_name], [line_name]) "
+            + "output inserted.id values (?, ?, ?, ?, ?)";
+    return dsl.resultQuery(sql, prodDate, shift, factoryName, workshopName, lineName)
+        .fetchOne(0, Long.class);
   }
 
   public List<ProductionDailyProcessViewDto> fetchProcessesByHeaderId(Long headerId) {
     return baseSelect()
         .where(PRODUCTION_DAILY_PROCESS.HEADER_ID.eq(headerId))
         .orderBy(PRODUCTION_DAILY_PROCESS.ID.asc())
-        .fetchInto(ProductionDailyProcessViewDto.class);
-  }
-
-  public List<ProductionDailyProcessViewDto> fetchProcessesByDate(
-      LocalDate prodDate, String shift) {
-    Condition condition = PRODUCTION_DAILY_HEADER.PROD_DATE.eq(prodDate);
-    if (shift != null) {
-      condition = condition.and(PRODUCTION_DAILY_HEADER.SHIFT.eq(shift));
-    }
-    return baseSelect()
-        .where(condition)
-        .orderBy(PRODUCTION_DAILY_HEADER.SHIFT.asc(), PRODUCTION_DAILY_PROCESS.ID.asc())
         .fetchInto(ProductionDailyProcessViewDto.class);
   }
 
@@ -72,14 +67,18 @@ public class ProductionDailyRepository {
         .fetchInto(ProductionDailyProcessViewDto.class);
   }
 
-  public ProductionDailyProcessViewDto fetchProcessById(Long id) {
+  public List<ProductionDailyProcessViewDto> fetchAllProcesses() {
     return baseSelect()
-        .where(PRODUCTION_DAILY_PROCESS.ID.eq(id))
-        .fetchOneInto(ProductionDailyProcessViewDto.class);
+        .orderBy(
+            PRODUCTION_DAILY_HEADER.PROD_DATE.desc(),
+            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
+            PRODUCTION_DAILY_PROCESS.ID.asc())
+        .fetchInto(ProductionDailyProcessViewDto.class);
   }
 
   public Long insertProcess(
       Long headerId,
+      String machineNo,
       String processName,
       String productCode,
       String seriesName,
@@ -95,13 +94,15 @@ public class ProductionDailyRepository {
       String ca) {
     String sql =
         "insert into smtBackend.production_daily_process "
-            + "([header_id], [process_name], [product_code], [series_name], [ct], "
+            + "([header_id], [machine_no], "
+            + "[process_name], [product_code], [series_name], [ct], "
             + "[equipment_count], [run_minutes], [target_output], [actual_output], "
             + "[gap], [achievement_rate], [down_minutes], [fa], [ca]) "
-            + "output inserted.id values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + "output inserted.id values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     return dsl.resultQuery(
             sql,
             headerId,
+            machineNo,
             processName,
             productCode,
             seriesName,
@@ -121,6 +122,7 @@ public class ProductionDailyRepository {
   public int updateProcess(
       Long id,
       Long headerId,
+      String machineNo,
       String processName,
       String productCode,
       String seriesName,
@@ -135,6 +137,7 @@ public class ProductionDailyRepository {
       String fa,
       String ca) {
     return dsl.update(PRODUCTION_DAILY_PROCESS)
+        .set(PRODUCTION_DAILY_PROCESS.MACHINE_NO, machineNo)
         .set(PRODUCTION_DAILY_PROCESS.PROCESS_NAME, processName)
         .set(PRODUCTION_DAILY_PROCESS.PRODUCT_CODE, productCode)
         .set(PRODUCTION_DAILY_PROCESS.SERIES_NAME, seriesName)
@@ -160,12 +163,25 @@ public class ProductionDailyRepository {
         .execute();
   }
 
+  public ProductionDailyProcessViewDto fetchProcessSnapshot(Long processId) {
+    if (processId == null) {
+      return null;
+    }
+    return baseSelect()
+        .where(PRODUCTION_DAILY_PROCESS.ID.eq(processId))
+        .fetchOneInto(ProductionDailyProcessViewDto.class);
+  }
+
   private SelectJoinStep<? extends Record> baseSelect() {
     return dsl.select(
             PRODUCTION_DAILY_PROCESS.ID.as("id"),
             PRODUCTION_DAILY_PROCESS.HEADER_ID.as("headerId"),
             PRODUCTION_DAILY_HEADER.PROD_DATE.as("prodDate"),
             PRODUCTION_DAILY_HEADER.SHIFT.as("shift"),
+            PRODUCTION_DAILY_HEADER.FACTORY_NAME.as("factoryName"),
+            PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.as("workshopName"),
+            PRODUCTION_DAILY_HEADER.LINE_NAME.as("lineName"),
+            PRODUCTION_DAILY_PROCESS.MACHINE_NO.as("machineNo"),
             PRODUCTION_DAILY_PROCESS.PROCESS_NAME.as("processName"),
             PRODUCTION_DAILY_PROCESS.PRODUCT_CODE.as("productCode"),
             PRODUCTION_DAILY_PROCESS.SERIES_NAME.as("seriesName"),

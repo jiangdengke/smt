@@ -12,6 +12,8 @@ public class ProductionDailyProcessRequest {
 
   private Long id;
 
+  @NotBlank private String machineNo;
+
   @NotBlank private String processName;
 
   @NotBlank private String productCode;

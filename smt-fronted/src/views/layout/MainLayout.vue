@@ -8,104 +8,98 @@ import {
   ComputerOutlined,
   BarChartOutlined,
   AssessmentOutlined,
-    ManageAccountsOutlined,
-    SettingsOutlined,
-    Inventory2Outlined,
-    SummarizeOutlined,
-    AutoAwesomeOutlined,
-    AssignmentLateOutlined
-  } from '@vicons/material'
+  ManageAccountsOutlined,
+  SettingsOutlined,
+  Inventory2Outlined,
+  SummarizeOutlined,
+  AutoAwesomeOutlined,
+  AccessTimeOutlined
+} from '@vicons/material'
+
+const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+const message = useMessage()
+
+const sidebarCollapsed = ref(false)
+
+// 系统标题
+const systemTitle = computed(() => {
+  if (authStore.isAdmin) return 'SMT生产维修系统 - 管理员端'
+  if (authStore.isProduction) return 'SMT生产维修系统 - 生产端'
+  return 'SMT生产维修系统 - 维修端'
+})
+
+function renderIcon(icon) {
+  return () => h(NIcon, null, { default: () => h(icon) })
+}
+
+// 构建菜单
+const menuOptions = computed(() => {
+  const options = []
   
-  const router = useRouter()
-  const route = useRoute()
-  const authStore = useAuthStore()
-  const message = useMessage()
-  
-  const sidebarCollapsed = ref(false)
-  
-  // 系统标题
-  const systemTitle = computed(() => {
-    if (authStore.isAdmin) return 'SMT生产维修系统 - 管理员端'
-    if (authStore.isProduction) return 'SMT生产维修系统 - 生产端'
-    return 'SMT生产维修系统 - 维修端'
-  })
-  
-  function renderIcon(icon) {
-    return () => h(NIcon, null, { default: () => h(icon) })
-  }
-  
-  // 构建菜单
-  const menuOptions = computed(() => {
-    const options = []
-    
-    // 1. 如果是管理员，只展示管理菜单 (优先级最高)
-    if (authStore.isAdmin) {
-      options.push({
-        label: '账户管理',
-        key: 'UserAdmin',
-        icon: renderIcon(ManageAccountsOutlined)
-      })
-      options.push({
-        label: '字段管理',
-        key: 'SystemFields',
-        icon: renderIcon(SettingsOutlined)
-      })
-      return options
-    }
-  
-    // 2. 如果是生产端，只展示报表 (优先级次之)
-    if (authStore.isProduction) {
-      options.push({
-        label: '每日产能',
-        key: 'Report',
-        icon: renderIcon(AssessmentOutlined)
-      })
-      return options
-    }
-  
-    // 3. 默认/维修端，展示维修管理
-    if (authStore.hasPermission('repair:read') || authStore.hasPermission('repair:write')) {
-      options.push({
-        label: '维修管理',
-        key: 'maintenance',
-        icon: renderIcon(BuildOutlined),
-        children: [
-          {
-            label: '维修工单',
-            key: 'WorkOrder',
-            icon: renderIcon(AssignmentLateOutlined)
-          },
-          {
-            label: '维修工作台',
-            key: 'Workbench',
-            icon: renderIcon(ComputerOutlined)
-          },
-          {
-            label: '数据统计',
-            key: 'Analytics',
-            icon: renderIcon(BarChartOutlined)
-          }
-        ]
-      })
-      options.push({
-        label: '备品管理',
-        key: 'SpareParts',
-        icon: renderIcon(Inventory2Outlined)
-      })
-      options.push({
-        label: '每日报表',
-        key: 'RepairDailyReport',
-        icon: renderIcon(SummarizeOutlined)
-      })
-      options.push({
-        label: 'AI模块',
-        key: 'AiModule',
-        icon: renderIcon(AutoAwesomeOutlined)
-      })
-    }
-  
+  // 1. 如果是管理员，只展示管理菜单 (优先级最高)
+  if (authStore.isAdmin) {
+    options.push({ 
+      label: '账户管理', 
+      key: 'UserAdmin',
+      icon: renderIcon(ManageAccountsOutlined)
+    })
+    options.push({ 
+      label: '字段管理', 
+      key: 'SystemFields',
+      icon: renderIcon(SettingsOutlined)
+    })
     return options
-  })
+  }
+
+  // 2. 如果是生产端，只展示报表 (优先级次之)
+  if (authStore.isProduction) {
+    options.push({ 
+      label: '每日产能', 
+      key: 'Report',
+      icon: renderIcon(AssessmentOutlined)
+    })
+    options.push({
+      label: '生产记录',
+      key: 'ReportRecords',
+      icon: renderIcon(SummarizeOutlined)
+    })
+    return options
+  }
+
+  // 3. 默认/维修端，展示维修管理
+  if (authStore.hasPermission('repair:read') || authStore.hasPermission('repair:write')) {
+    options.push({
+      label: '维修工作台',
+      key: 'Workbench',
+      icon: renderIcon(ComputerOutlined)
+    })
+    options.push({
+      label: '备品管理',
+      key: 'SpareParts',
+      icon: renderIcon(Inventory2Outlined)
+    })
+    options.push({
+      label: '每日考勤',
+      key: 'RepairAttendance',
+      icon: renderIcon(AccessTimeOutlined)
+    })
+    options.push({
+      label: 'AI模块',
+      key: 'AiModule',
+      icon: renderIcon(AutoAwesomeOutlined)
+    })
+    options.push({
+      label: '数据统计',
+      key: 'Analytics',
+      icon: renderIcon(BarChartOutlined)
+    })
+  }
+
+  return options
+})
+
 // 当前选中的菜单 Key，需要跟 Route Name 对应
 const activeKey = computed(() => route.name)
 

@@ -18,6 +18,7 @@ import org.jdk.project.dto.repair.RepairRecordQueryDto;
 import org.jdk.project.dto.repair.RepairRecordRequest;
 import org.jdk.project.dto.repair.RepairRecordViewDto;
 import org.jdk.project.exception.BusinessException;
+import org.jdk.project.repository.ProductionDailyRepository;
 import org.jdk.project.repository.RepairRecordRepository;
 import org.jooq.Condition;
 import org.jooq.Field;
@@ -39,6 +40,7 @@ public class RepairRecordService {
       RepairRecordPerson.REPAIR_RECORD_PERSON;
 
   private final RepairRecordRepository repairRecordRepository;
+  private final ProductionDailyRepository productionDailyRepository;
 
   public void export(HttpServletResponse response, RepairRecordQueryDto query) throws IOException {
     Condition condition = buildCondition(query);
@@ -136,7 +138,8 @@ public class RepairRecordService {
             normalizeText(request.getSolution()),
             request.getIsFixed(),
             request.getFixedAt(),
-            request.getRepairMinutes());
+            request.getRepairMinutes(),
+            null);
     if (recordId == null) {
       throw new BusinessException("维修记录创建失败");
     }
@@ -159,6 +162,7 @@ public class RepairRecordService {
     String responsiblePersonName =
         normalizeRequiredText(request.getResponsiblePersonName(), "责任人不能为空");
     List<String> repairPersonNames = normalizeRepairPersonNames(request.getRepairPersonNames());
+    String solution = normalizeText(request.getSolution());
     int updated =
         repairRecordRepository.updateRecord(
             id,
@@ -173,7 +177,7 @@ public class RepairRecordService {
             teamName,
             responsiblePersonName,
             normalizeText(request.getAbnormalDesc()),
-            normalizeText(request.getSolution()),
+            solution,
             request.getIsFixed(),
             request.getFixedAt(),
             request.getRepairMinutes());
@@ -182,6 +186,12 @@ public class RepairRecordService {
     }
     repairRecordRepository.deleteRepairPeopleByRecordId(id);
     repairRecordRepository.insertRepairPeople(id, repairPersonNames);
+    if (solution != null) {
+      Long sourceProcessId = repairRecordRepository.fetchSourceProcessId(id);
+      if (sourceProcessId != null) {
+        productionDailyRepository.updateProcessCa(sourceProcessId, solution);
+      }
+    }
   }
 
   @Transactional(rollbackFor = Throwable.class)

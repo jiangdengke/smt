@@ -15,6 +15,14 @@ public class ProductionDailyProcessViewDto {
 
   private String shift;
 
+  private String factoryName;
+
+  private String workshopName;
+
+  private String lineName;
+
+  private String machineNo;
+
   private String processName;
 
   private String productCode;
