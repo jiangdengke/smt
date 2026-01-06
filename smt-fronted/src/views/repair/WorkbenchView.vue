@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, h, watch } from 'vue'
+import { ref, computed, onMounted, h, watch, nextTick } from 'vue'
 import { useMessage, NButton, NTag, NPopconfirm } from 'naive-ui'
 import { useMasterDataStore } from '../../stores/masterData'
 import { useAuthStore } from '../../stores/auth'
@@ -46,6 +46,7 @@ const filterForm = ref({
 const newRecordOpen = ref(false)
 const newRecordForm = ref(createEmptyRecord())
 const formRef = ref(null)
+const isPrefilling = ref(false)
 
 const rules = {
   occurAt: { required: true, message: '请选择发生时间', trigger: ['blur', 'change'] },
@@ -300,10 +301,24 @@ const handleEdit = (row) => {
   form.shift = row.shift
   
   // Reverse lookup
-  form.factoryId = getIdByName(masterStore.factories, row.factoryName)
-  form.workshopId = getIdByName(masterStore.workshops, row.workshopName)
-  form.lineId = getIdByName(masterStore.lines, row.lineName)
-  form.machineId = getIdByMachineNo(masterStore.machines, row.machineNo)
+  const factoryId = getIdByName(masterStore.factories, row.factoryName)
+  const workshopId = getIdByName(
+    masterStore.workshops.filter((item) => item.factoryId === factoryId),
+    row.workshopName
+  )
+  const lineId = getIdByName(
+    masterStore.lines.filter((item) => item.workshopId === workshopId),
+    row.lineName
+  )
+  const machineId = getIdByMachineNo(
+    masterStore.machines.filter((item) => item.lineId === lineId),
+    row.machineNo
+  )
+
+  form.factoryId = factoryId
+  form.workshopId = workshopId
+  form.lineId = lineId
+  form.machineId = machineId
   
   form.abnormalCategoryId = getIdByName(masterStore.abnormalCategories, row.abnormalCategoryName)
   form.abnormalTypeId = getIdByName(masterStore.abnormalTypes, row.abnormalTypeName)
@@ -318,8 +333,12 @@ const handleEdit = (row) => {
   form.fixedAt = row.fixedAt ? formatDate(row.fixedAt, 'yyyy-MM-dd') : null
   form.repairMinutes = row.repairMinutes || 0
 
+  isPrefilling.value = true
   newRecordForm.value = form
   newRecordOpen.value = true
+  nextTick(() => {
+    isPrefilling.value = false
+  })
 }
 
 const handleExport = async () => {
@@ -400,9 +419,21 @@ const submitNewRecord = async () => {
   }
 }
 
-watch(() => newRecordForm.value.factoryId, () => newRecordForm.value.workshopId = null)
-watch(() => newRecordForm.value.workshopId, () => newRecordForm.value.lineId = null)
-watch(() => newRecordForm.value.lineId, () => newRecordForm.value.machineId = null)
+watch(() => newRecordForm.value.factoryId, () => {
+  if (isPrefilling.value) return
+  newRecordForm.value.workshopId = null
+  newRecordForm.value.lineId = null
+  newRecordForm.value.machineId = null
+})
+watch(() => newRecordForm.value.workshopId, () => {
+  if (isPrefilling.value) return
+  newRecordForm.value.lineId = null
+  newRecordForm.value.machineId = null
+})
+watch(() => newRecordForm.value.lineId, () => {
+  if (isPrefilling.value) return
+  newRecordForm.value.machineId = null
+})
 watch(() => newRecordForm.value.abnormalCategoryId, () => newRecordForm.value.abnormalTypeId = null)
 watch(() => newRecordForm.value.teamId, () => {
   newRecordForm.value.responsiblePersonId = null
