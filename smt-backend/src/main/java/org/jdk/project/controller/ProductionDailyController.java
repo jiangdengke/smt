@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.jdk.project.dto.production.ProductionDailyBatchRequest;
 import org.jdk.project.dto.production.ProductionDailyQueryDto;
 import org.jdk.project.dto.production.ProductionDailyProcessViewDto;
+import org.jdk.project.dto.production.ProductionDailyRecordExportRequest;
 import org.jdk.project.dto.production.ProductionDailyResponse;
 import org.jdk.project.service.ProductionDailyService;
 import org.springframework.http.HttpStatus;
@@ -53,5 +54,14 @@ public class ProductionDailyController {
   @PreAuthorize("hasRole('PRODUCTION')")
   public List<ProductionDailyProcessViewDto> listRecords() {
     return productionDailyService.listRecords();
+  }
+
+  @PostMapping("/records/export")
+  @PreAuthorize("hasRole('PRODUCTION')")
+  public void exportRecords(
+      HttpServletResponse response,
+      @RequestBody @Valid ProductionDailyRecordExportRequest request)
+      throws IOException {
+    productionDailyService.exportSelected(response, request.getIds());
   }
 }

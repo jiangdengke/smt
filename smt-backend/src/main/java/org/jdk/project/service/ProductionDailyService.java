@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jdk.project.dto.production.ProductionDailyBatchRequest;
@@ -106,25 +107,24 @@ public class ProductionDailyService {
     String shift = normalizeShiftNullable(query.getShift());
     List<ProductionDailyProcessViewDto> records =
         productionDailyRepository.fetchProcessesForExport(from, to, shift);
-    List<ProductionDailyExportDto> exportData =
-        records.stream().map(this::convertToExportDto).toList();
-
-    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    response.setCharacterEncoding("utf-8");
-    String fileName =
-        URLEncoder.encode("每日产能_" + LocalDateTime.now(), StandardCharsets.UTF_8)
-            .replaceAll("\\+", "%20");
-    response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-
-    EasyExcel.write(response.getOutputStream(), ProductionDailyExportDto.class)
-        .registerWriteHandler(new ColMergeStrategy(1, 0, 1))
-        .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
-        .sheet("每日产能")
-        .doWrite(exportData);
+    writeExport(response, records);
   }
 
   public List<ProductionDailyProcessViewDto> listRecords() {
     return productionDailyRepository.fetchAllProcesses();
+  }
+
+  public void exportSelected(HttpServletResponse response, List<Long> ids) throws IOException {
+    if (ids == null || ids.isEmpty()) {
+      throw new BusinessException("请选择要导出的记录");
+    }
+    List<ProductionDailyProcessViewDto> records =
+        productionDailyRepository.fetchProcessesByIds(ids);
+    if (records.isEmpty()) {
+      throw new BusinessException("未找到导出记录");
+    }
+    validateSameGroup(records);
+    writeExport(response, records);
   }
 
   private void saveProcess(
@@ -266,6 +266,35 @@ public class ProductionDailyService {
     export.setFa(dto.getFa());
     export.setCa(dto.getCa());
     return export;
+  }
+
+  private void writeExport(HttpServletResponse response, List<ProductionDailyProcessViewDto> records)
+      throws IOException {
+    List<ProductionDailyExportDto> exportData =
+        records.stream().map(this::convertToExportDto).toList();
+    response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    response.setCharacterEncoding("utf-8");
+    String fileName =
+        URLEncoder.encode("每日产能_" + LocalDateTime.now(), StandardCharsets.UTF_8)
+            .replaceAll("\\+", "%20");
+    response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+    EasyExcel.write(response.getOutputStream(), ProductionDailyExportDto.class)
+        .registerWriteHandler(new ColMergeStrategy(1, 0, 1, 2, 3, 4))
+        .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+        .sheet("每日产能")
+        .doWrite(exportData);
+  }
+
+  private void validateSameGroup(List<ProductionDailyProcessViewDto> records) {
+    ProductionDailyProcessViewDto first = records.get(0);
+    for (ProductionDailyProcessViewDto record : records) {
+      if (!Objects.equals(first.getProdDate(), record.getProdDate())
+          || !Objects.equals(first.getFactoryName(), record.getFactoryName())
+          || !Objects.equals(first.getWorkshopName(), record.getWorkshopName())
+          || !Objects.equals(first.getLineName(), record.getLineName())) {
+        throw new BusinessException("只能导出同一天、同厂区、同车间、同线别的记录");
+      }
+    }
   }
 
   private Integer calculateGap(Integer targetOutput, Integer actualOutput) {

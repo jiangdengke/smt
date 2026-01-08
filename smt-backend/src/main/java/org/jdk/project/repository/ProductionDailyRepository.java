@@ -63,7 +63,14 @@ public class ProductionDailyRepository {
     }
     return baseSelect()
         .where(condition)
-        .orderBy(PRODUCTION_DAILY_HEADER.PROD_DATE.asc(), PRODUCTION_DAILY_HEADER.SHIFT.asc())
+        .orderBy(
+            PRODUCTION_DAILY_HEADER.PROD_DATE.asc(),
+            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
+            PRODUCTION_DAILY_HEADER.FACTORY_NAME.asc(),
+            PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.asc(),
+            PRODUCTION_DAILY_HEADER.LINE_NAME.asc(),
+            PRODUCTION_DAILY_PROCESS.PROCESS_NAME.asc(),
+            PRODUCTION_DAILY_PROCESS.MACHINE_NO.asc())
         .fetchInto(ProductionDailyProcessViewDto.class);
   }
 
@@ -73,6 +80,23 @@ public class ProductionDailyRepository {
             PRODUCTION_DAILY_HEADER.PROD_DATE.desc(),
             PRODUCTION_DAILY_HEADER.SHIFT.asc(),
             PRODUCTION_DAILY_PROCESS.ID.asc())
+        .fetchInto(ProductionDailyProcessViewDto.class);
+  }
+
+  public List<ProductionDailyProcessViewDto> fetchProcessesByIds(List<Long> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
+    return baseSelect()
+        .where(PRODUCTION_DAILY_PROCESS.ID.in(ids))
+        .orderBy(
+            PRODUCTION_DAILY_HEADER.PROD_DATE.asc(),
+            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
+            PRODUCTION_DAILY_HEADER.FACTORY_NAME.asc(),
+            PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.asc(),
+            PRODUCTION_DAILY_HEADER.LINE_NAME.asc(),
+            PRODUCTION_DAILY_PROCESS.PROCESS_NAME.asc(),
+            PRODUCTION_DAILY_PROCESS.MACHINE_NO.asc())
         .fetchInto(ProductionDailyProcessViewDto.class);
   }
 
