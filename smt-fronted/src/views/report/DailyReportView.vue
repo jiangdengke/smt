@@ -1,11 +1,13 @@
 <script setup>
-import { ref, computed, h, watch, onMounted } from 'vue'
-import { useMessage, NInput, NInputNumber, NSelect, NButton, NSpace, NCard, NDataTable } from 'naive-ui'
-import { getProductionDaily, saveProductionDailyBatch } from '../../api/production'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useMessage, NButton, NCard, NModal, NSpace, NPageHeader, NIcon } from 'naive-ui'
+import { getProductionDaily, saveProductionDailyBatch, getProductionDailyRecords, exportProductionDailyByDate } from '../../api/production'
 import { useMasterDataStore } from '../../stores/masterData'
 import { formatDate } from '../../utils/format'
-import { SaveOutlined, AddOutlined, DeleteOutlineOutlined } from '@vicons/material'
-import { NIcon } from 'naive-ui'
+import { SaveOutlined } from '@vicons/material'
+import DailyReportHeaderForm from './components/DailyReportHeaderForm.vue'
+import DailyReportProcessTable from './components/DailyReportProcessTable.vue'
+import DailyReportRecordList from './components/DailyReportRecordList.vue'
 
 const message = useMessage()
 const masterStore = useMasterDataStore()
@@ -48,6 +50,10 @@ const isEditing = ref(false) // 控制查看/编辑模式
 const modalOpen = ref(false)
 const rows = ref([]) // 统一的数据源
 const masterLoaded = ref(false)
+const formMode = ref('create')
+const recordLoading = ref(false)
+const recordRows = ref([])
+const headerLocked = computed(() => saving.value || formMode.value === 'edit')
 
 const ensureMasterData = async () => {
   if (masterLoaded.value) return
@@ -61,6 +67,12 @@ const getNameById = (list, id, field = 'name') => {
   return item ? item[field] : null
 }
 
+const getIdByName = (list, name) => {
+  if (!name || !list) return null
+  const item = list.find((entry) => entry.name === name)
+  return item ? item.id : null
+}
+
 const getIdByMachineNo = (list, no) => {
   if (!no || !list) return null
   const item = list.find(i => i.machineNo === no)
@@ -69,10 +81,6 @@ const getIdByMachineNo = (list, no) => {
 
 const resolveRowName = (row, list, idKey, nameKey, field = 'name') => {
   return getNameById(list, row[idKey], field) || normalizeText(row[nameKey])
-}
-
-function renderIcon(icon) {
-  return () => h(NIcon, null, { default: () => h(icon) })
 }
 
 const ensureDefaultRows = () => {
@@ -112,19 +120,23 @@ const loadData = async () => {
   }
 }
 
+const resetForm = () => {
+  form.value = {
+    prodDate: formatDate(new Date().toISOString()),
+    shift: 'DAY',
+    factoryId: null,
+    workshopId: null,
+    lineId: null
+  }
+}
+
 const openForm = async () => {
+  formMode.value = 'create'
+  resetForm()
+  rows.value = []
   modalOpen.value = true
   isEditing.value = true
   await ensureMasterData()
-  if (
-    form.value.prodDate &&
-    form.value.shift &&
-    form.value.factoryId &&
-    form.value.workshopId &&
-    form.value.lineId
-  ) {
-    await loadData()
-  }
   ensureDefaultRows()
 }
 
@@ -132,6 +144,31 @@ const closeForm = () => {
   modalOpen.value = false
   isEditing.value = false
   rows.value = []
+  formMode.value = 'create'
+}
+
+const openEditGroup = async (group) => {
+  formMode.value = 'edit'
+  await ensureMasterData()
+  const factoryId = getIdByName(masterStore.factories, group.factoryName)
+  const workshopId = getIdByName(
+    masterStore.workshops.filter((item) => item.factoryId === factoryId),
+    group.workshopName
+  )
+  const lineId = getIdByName(
+    masterStore.lines.filter((item) => item.workshopId === workshopId),
+    group.lineName
+  )
+  form.value = {
+    prodDate: formatDate(group.prodDate),
+    shift: group.shift,
+    factoryId,
+    workshopId,
+    lineId
+  }
+  modalOpen.value = true
+  isEditing.value = true
+  await loadData()
 }
 
 // 保存逻辑
@@ -147,6 +184,13 @@ const handleSave = async () => {
     const factoryName = getNameById(masterStore.factories, form.value.factoryId)
     const workshopName = getNameById(masterStore.workshops, form.value.workshopId)
     const lineName = getNameById(masterStore.lines, form.value.lineId)
+    if (formMode.value === 'create') {
+      const key = buildGroupKey(form.value.prodDate, form.value.shift, factoryName, workshopName, lineName)
+      if (groupKeySet.value.has(key)) {
+        message.warning('该日期/班别/厂区/车间/线别已存在，请从列表编辑')
+        return
+      }
+    }
     const payload = {
       prodDate: form.value.prodDate,
       shift: form.value.shift,
@@ -178,6 +222,7 @@ const handleSave = async () => {
     rows.value = (res?.processes || []).map(mapProcessToRow)
     message.success('保存成功')
     closeForm()
+    await loadRecordList()
   } catch (error) {
     message.error(error.message || '保存失败')
   } finally {
@@ -192,200 +237,10 @@ const removeRow = (index) => rows.value.splice(index, 1)
 // --- 列定义 (动态切换 编辑/查看 渲染) ---
 
 // 辅助渲染：根据 isEditing 决定显示 Input 还是 Text
-const renderCell = (row, key, placeholder, type = 'text', numberProps = {}) => {
-  if (!isEditing.value) {
-    // 查看模式
-    if (type === 'number') return row[key] ?? '-'
-    return row[key] || '-'
-  }
-  
-  // 编辑模式
-  if (type === 'number') {
-    return h(NInputNumber, {
-      value: row[key],
-      onUpdateValue: (v) => row[key] = v,
-      placeholder,
-      showButton: false, // 纯数字框，更像 Excel
-      size: 'small',
-      ...numberProps
-    })
-  }
-  
-  return h(NInput, {
-    value: row[key],
-    onUpdateValue: (v) => row[key] = v,
-    placeholder,
-    size: 'small'
-  })
-}
-
-const renderMachineSelect = (row) => {
-  if (!isEditing.value) {
-    return row.machineNo || '-'
-  }
-  return h(NSelect, {
-    value: row.machineId,
-    options: lineMachineOptions.value,
-    labelField: 'machineNo',
-    valueField: 'id',
-    placeholder: '机台号',
-    size: 'small',
-    disabled: !form.value.lineId,
-    onUpdateValue: (v) => {
-      row.machineId = v
-      row.machineNo = getNameById(lineMachineOptions.value, v, 'machineNo') || ''
-    }
-  })
-}
-
-const columns = computed(() => [
-  {
-    title: '基础信息',
-    key: 'group-basic',
-    children: [
-      {
-        title: '制程段',
-        key: 'processName',
-        width: 100,
-        fixed: 'left', // 固定列
-        render: (row) => renderCell(row, 'processName', '如: 印刷')
-      },
-      {
-        title: '机台号',
-        key: 'machineNo',
-        width: 120,
-        fixed: 'left',
-        render: (row) => renderMachineSelect(row)
-      },
-      {
-        title: '料号',
-        key: 'productCode',
-        width: 120,
-        fixed: 'left',
-        render: (row) => renderCell(row, 'productCode', '生产料号')
-      },
-      {
-        title: '系列',
-        key: 'seriesName',
-        width: 80,
-        render: (row) => renderCell(row, 'seriesName', '系列')
-      }
-    ]
-  },
-  {
-    title: '生产设定',
-    key: 'group-settings',
-    children: [
-      {
-        title: 'CT(秒)',
-        key: 'ct',
-        width: 80,
-        render: (row) => renderCell(row, 'ct', 'CT', 'number', { min: 0, step: 0.1 })
-      },
-      {
-        title: '设备数',
-        key: 'equipmentCount',
-        width: 80,
-        render: (row) => renderCell(row, 'equipmentCount', 'Qty', 'number', { min: 0 })
-      },
-      {
-        title: '投产(分)',
-        key: 'runMinutes',
-        width: 90,
-        render: (row) => renderCell(row, 'runMinutes', 'Min', 'number', { min: 0 })
-      }
-    ]
-  },
-  {
-    title: '产出绩效',
-    key: 'group-output',
-    children: [
-      {
-        title: '目标',
-        key: 'targetOutput',
-        width: 90,
-        render: (row) => renderCell(row, 'targetOutput', '目标', 'number', { min: 0 })
-      },
-      {
-        title: '实际',
-        key: 'actualOutput',
-        width: 90,
-        render: (row) => renderCell(row, 'actualOutput', '实际', 'number', { min: 0 })
-      },
-      {
-        title: 'GAP',
-        key: 'gap',
-        width: 80,
-        render(row) {
-          const gap = calculateGap(row)
-          // 实时计算，负数显红
-          const color = gap !== null && gap < 0 ? '#d03050' : '#18a058'
-          return h('span', { style: { color, fontWeight: 'bold' } }, gap ?? '-')
-        }
-      },
-      {
-        title: '达成率',
-        key: 'achievementRate',
-        width: 90,
-        render(row) {
-          const rate = calculateRate(row)
-          return rate === null ? '-' : `${rate.toFixed(1)}%`
-        }
-      }
-    ]
-  },
-  {
-    title: '异常闭环 (FA/CA)',
-    key: 'group-analysis',
-    children: [
-      {
-        title: 'Down机(分)',
-        key: 'downMinutes',
-        width: 100,
-        render: (row) => renderCell(row, 'downMinutes', 'Loss', 'number', { min: 0 })
-      },
-      {
-        title: '异常描述 (FA)',
-        key: 'fa',
-        width: 200,
-        render: (row) => {
-          // 如果 GAP < 0，FA 应该是必填的建议（视觉提示）
-          const gap = calculateGap(row)
-          const isWarning = gap !== null && gap < 0 && !row.fa
-          return renderCell(row, 'fa', isWarning ? '产能未达标，请填写原因' : '无异常可空')
-        }
-      },
-      {
-        title: '对策 (CA)',
-        key: 'ca',
-        width: 200,
-        render(row) {
-          // CA 始终禁用编辑，由管理端回填（此处仅展示）
-          return h(NInput, { value: row.ca, disabled: true, placeholder: '待维修/管理回复', size: 'small' })
-        }
-      }
-    ]
-  },
-  // 仅在编辑模式显示的“操作”列
-  ...(isEditing.value ? [{
-    title: '操作',
-    key: 'actions',
-    width: 60,
-    fixed: 'right',
-    render(_, index) {
-      return h(
-        NButton,
-        { size: 'tiny', quaternary: true, type: 'error', onClick: () => removeRow(index) },
-        { icon: renderIcon(DeleteOutlineOutlined) }
-      )
-    }
-  }] : [])
-])
-
 watch(
   () => [form.value.prodDate, form.value.shift, form.value.factoryId, form.value.workshopId, form.value.lineId],
   () => {
-    if (!modalOpen.value) return
+    if (!modalOpen.value || formMode.value !== 'edit') return
     loadData()
   }
 )
@@ -400,6 +255,7 @@ const clearRowMachines = () => {
 watch(
   () => form.value.factoryId,
   () => {
+    if (formMode.value === 'edit') return
     form.value.workshopId = null
     form.value.lineId = null
     clearRowMachines()
@@ -409,6 +265,7 @@ watch(
 watch(
   () => form.value.workshopId,
   () => {
+    if (formMode.value === 'edit') return
     form.value.lineId = null
     clearRowMachines()
   }
@@ -424,6 +281,7 @@ watch(
 onMounted(async () => {
   await masterStore.loadAll()
   masterLoaded.value = true
+  loadRecordList()
 })
 
 // --- Helpers ---
@@ -447,6 +305,44 @@ function createRow() {
   }
 }
 
+const buildGroupKey = (prodDate, shift, factoryName, workshopName, lineName) =>
+  [formatDate(prodDate), shift, factoryName, workshopName, lineName].join('|')
+
+const groupKeySet = computed(() => {
+  const set = new Set()
+  recordRows.value.forEach((row) => {
+    const key = buildGroupKey(row.prodDate, row.shift, row.factoryName, row.workshopName, row.lineName)
+    set.add(key)
+  })
+  return set
+})
+
+const handleExportGroup = async (group) => {
+  try {
+    const prodDate = formatDate(group.prodDate)
+    if (!prodDate) {
+      message.warning('导出日期缺失')
+      return
+    }
+    await exportProductionDailyByDate(prodDate)
+    message.success('导出成功')
+  } catch (error) {
+    message.error(error.message || '导出失败')
+  }
+}
+
+const loadRecordList = async () => {
+  recordLoading.value = true
+  try {
+    const res = await getProductionDailyRecords()
+    recordRows.value = res || []
+  } catch (error) {
+    message.error(error.message || '加载记录失败')
+  } finally {
+    recordLoading.value = false
+  }
+}
+
 function mapProcessToRow(item) {
   return {
     id: item.id || null,
@@ -464,16 +360,6 @@ function mapProcessToRow(item) {
     fa: item.fa || '',
     ca: item.ca || ''
   }
-}
-
-function calculateGap(row) {
-  if (row.targetOutput == null || row.actualOutput == null) return null
-  return row.actualOutput - row.targetOutput
-}
-
-function calculateRate(row) {
-  if (row.targetOutput == null || row.targetOutput === 0 || row.actualOutput == null) return null
-  return (row.actualOutput / row.targetOutput) * 100
 }
 
 function normalizeText(value) {
@@ -534,6 +420,13 @@ function validateRows(rowList) {
       请在弹出的表单中选择日期、班别、厂区、车间、线别，并填写各制程段的产能数据。
     </n-card>
 
+    <DailyReportRecordList
+      :records="recordRows"
+      :loading="recordLoading"
+      :on-edit="openEditGroup"
+      :on-export="handleExportGroup"
+    />
+
     <n-modal
       v-model:show="modalOpen"
       preset="card"
@@ -544,86 +437,24 @@ function validateRows(rowList) {
         每日产能录入
       </template>
 
-      <n-card size="small" style="margin-bottom: 12px;">
-        <n-space align="center" wrap>
-          <span style="font-size: 13px; color: gray;">日期:</span>
-          <n-date-picker
-            v-model:formatted-value="form.prodDate"
-            value-format="yyyy-MM-dd"
-            type="date"
-            size="small"
-            :disabled="saving"
-            style="width: 130px"
-          />
-          <span style="font-size: 13px; color: gray;">班别:</span>
-          <n-select
-            v-model:value="form.shift"
-            :options="shiftOptions"
-            size="small"
-            :disabled="saving"
-            style="width: 100px"
-          />
-          <span style="font-size: 13px; color: gray;">厂区:</span>
-          <n-select
-            v-model:value="form.factoryId"
-            :options="masterStore.factories"
-            label-field="name"
-            value-field="id"
-            size="small"
-            :disabled="saving"
-            style="width: 140px"
-            placeholder="请选择"
-          />
-          <span style="font-size: 13px; color: gray;">车间:</span>
-          <n-select
-            v-model:value="form.workshopId"
-            :options="filterWorkshops"
-            label-field="name"
-            value-field="id"
-            size="small"
-            :disabled="saving"
-            style="width: 140px"
-            placeholder="请选择"
-          />
-          <span style="font-size: 13px; color: gray;">线别:</span>
-          <n-select
-            v-model:value="form.lineId"
-            :options="filterLines"
-            label-field="name"
-            value-field="id"
-            size="small"
-            :disabled="saving"
-            style="width: 140px"
-            placeholder="请选择"
-          />
-        </n-space>
-      </n-card>
+      <DailyReportHeaderForm
+        :form="form"
+        :shift-options="shiftOptions"
+        :factories="masterStore.factories"
+        :workshops="filterWorkshops"
+        :lines="filterLines"
+        :header-locked="headerLocked"
+      />
 
-      <n-card size="small" style="margin-bottom: 12px; background-color: #f9f9f9;">
-        <n-space justify="space-between" align="center">
-          <n-button size="small" dashed @click="addRow">
-            <template #icon><n-icon :component="AddOutlined" /></template>
-            新增制程段
-          </n-button>
-          <div style="font-size: 12px; color: #666;">
-            提示：GAP 为负数时请务必填写异常描述 (FA)
-          </div>
-        </n-space>
-      </n-card>
-
-      <n-card content-style="padding: 0;">
-        <n-data-table
-          :columns="columns"
-          :data="rows"
-          :loading="loading"
-          :single-column="true"
-          :single-line="false"
-          size="small"
-          :scroll-x="2000"
-          style="height: 520px"
-          flex-height
-        />
-      </n-card>
+      <DailyReportProcessTable
+        :rows="rows"
+        :loading="loading"
+        :is-editing="isEditing"
+        :line-machine-options="lineMachineOptions"
+        :line-id="form.lineId"
+        :on-add-row="addRow"
+        :on-remove-row="removeRow"
+      />
 
       <template #footer>
         <n-space justify="end">

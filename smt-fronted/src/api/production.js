@@ -18,18 +18,7 @@ export const saveProductionDailyBatch = (data) => request('/production-daily/bat
 
 export const getProductionDailyRecords = () => request('/production-daily/records')
 
-export const exportProductionDailyRecords = async (ids) => {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE || '/api'}/production-daily/records/export`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids })
-  })
-
-  if (!response.ok) {
-    throw new Error('导出失败')
-  }
-
+const downloadExcel = async (response) => {
   const blob = await response.blob()
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -47,4 +36,24 @@ export const exportProductionDailyRecords = async (ids) => {
   a.click()
   window.URL.revokeObjectURL(url)
   document.body.removeChild(a)
+}
+
+export const exportProductionDailyByDate = async (prodDate) => {
+  const params = new URLSearchParams({
+    from: prodDate,
+    to: prodDate
+  }).toString()
+  const response = await fetch(
+    `${import.meta.env.VITE_API_BASE || '/api'}/production-daily/export?${params}`,
+    {
+      method: 'GET',
+      credentials: 'include'
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error('导出失败')
+  }
+
+  await downloadExcel(response)
 }

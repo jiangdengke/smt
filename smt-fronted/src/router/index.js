@@ -49,12 +49,6 @@ const routes = [
         meta: { role: 'PRODUCTION' } // Or permission report:read
       },
       {
-        path: 'report-records',
-        name: 'ReportRecords',
-        component: () => import('../views/report/ProductionRecordsView.vue'),
-        meta: { role: 'PRODUCTION' }
-      },
-      {
         path: 'sys',
         name: 'SystemFields',
         component: () => import('../views/sys/FieldManagementView.vue'),

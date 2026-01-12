@@ -289,10 +289,8 @@ public class ProductionDailyService {
     ProductionDailyProcessViewDto first = records.get(0);
     for (ProductionDailyProcessViewDto record : records) {
       if (!Objects.equals(first.getProdDate(), record.getProdDate())
-          || !Objects.equals(first.getFactoryName(), record.getFactoryName())
-          || !Objects.equals(first.getWorkshopName(), record.getWorkshopName())
-          || !Objects.equals(first.getLineName(), record.getLineName())) {
-        throw new BusinessException("只能导出同一天、同厂区、同车间、同线别的记录");
+          || !Objects.equals(first.getShift(), record.getShift())) {
+        throw new BusinessException("只能导出同一天、同班别的记录");
       }
     }
   }

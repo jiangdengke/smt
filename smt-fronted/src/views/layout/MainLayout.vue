@@ -11,7 +11,6 @@ import {
   ManageAccountsOutlined,
   SettingsOutlined,
   Inventory2Outlined,
-  SummarizeOutlined,
   AutoAwesomeOutlined,
   AccessTimeOutlined
 } from '@vicons/material'
@@ -59,11 +58,6 @@ const menuOptions = computed(() => {
       label: '每日产能', 
       key: 'Report',
       icon: renderIcon(AssessmentOutlined)
-    })
-    options.push({
-      label: '生产记录',
-      key: 'ReportRecords',
-      icon: renderIcon(SummarizeOutlined)
     })
     return options
   }
