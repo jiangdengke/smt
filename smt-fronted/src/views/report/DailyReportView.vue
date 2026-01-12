@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useMessage, NButton, NCard, NModal, NSpace, NPageHeader, NIcon } from 'naive-ui'
-import { getProductionDaily, saveProductionDailyBatch, getProductionDailyRecords, exportProductionDailyByDate } from '../../api/production'
+import { getProductionDaily, saveProductionDailyBatch, getProductionDailyRecords, exportProductionDailyByGroup } from '../../api/production'
 import { useMasterDataStore } from '../../stores/masterData'
 import { formatDate } from '../../utils/format'
 import { SaveOutlined } from '@vicons/material'
@@ -147,9 +147,10 @@ const closeForm = () => {
   formMode.value = 'create'
 }
 
-const openEditGroup = async (group) => {
+const openEditGroup = async (group, shiftOverride) => {
   formMode.value = 'edit'
   await ensureMasterData()
+  const shift = shiftOverride || group.shift
   const factoryId = getIdByName(masterStore.factories, group.factoryName)
   const workshopId = getIdByName(
     masterStore.workshops.filter((item) => item.factoryId === factoryId),
@@ -161,7 +162,7 @@ const openEditGroup = async (group) => {
   )
   form.value = {
     prodDate: formatDate(group.prodDate),
-    shift: group.shift,
+    shift,
     factoryId,
     workshopId,
     lineId
@@ -324,7 +325,12 @@ const handleExportGroup = async (group) => {
       message.warning('导出日期缺失')
       return
     }
-    await exportProductionDailyByDate(prodDate)
+    await exportProductionDailyByGroup(
+      prodDate,
+      group.factoryName,
+      group.workshopName,
+      group.lineName
+    )
     message.success('导出成功')
   } catch (error) {
     message.error(error.message || '导出失败')

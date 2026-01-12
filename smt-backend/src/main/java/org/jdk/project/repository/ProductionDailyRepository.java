@@ -55,11 +55,25 @@ public class ProductionDailyRepository {
   }
 
   public List<ProductionDailyProcessViewDto> fetchProcessesForExport(
-      LocalDate from, LocalDate to, String shift) {
+      LocalDate from,
+      LocalDate to,
+      String shift,
+      String factoryName,
+      String workshopName,
+      String lineName) {
     Condition condition =
         PRODUCTION_DAILY_HEADER.PROD_DATE.ge(from).and(PRODUCTION_DAILY_HEADER.PROD_DATE.le(to));
     if (shift != null) {
       condition = condition.and(PRODUCTION_DAILY_HEADER.SHIFT.eq(shift));
+    }
+    if (factoryName != null) {
+      condition = condition.and(PRODUCTION_DAILY_HEADER.FACTORY_NAME.eq(factoryName));
+    }
+    if (workshopName != null) {
+      condition = condition.and(PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.eq(workshopName));
+    }
+    if (lineName != null) {
+      condition = condition.and(PRODUCTION_DAILY_HEADER.LINE_NAME.eq(lineName));
     }
     return baseSelect()
         .where(condition)

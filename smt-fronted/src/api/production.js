@@ -38,13 +38,15 @@ const downloadExcel = async (response) => {
   document.body.removeChild(a)
 }
 
-export const exportProductionDailyByDate = async (prodDate) => {
-  const params = new URLSearchParams({
-    from: prodDate,
-    to: prodDate
-  }).toString()
+export const exportProductionDailyByGroup = async (prodDate, factoryName, workshopName, lineName) => {
+  const params = new URLSearchParams()
+  params.set('from', prodDate)
+  params.set('to', prodDate)
+  if (factoryName) params.set('factoryName', factoryName)
+  if (workshopName) params.set('workshopName', workshopName)
+  if (lineName) params.set('lineName', lineName)
   const response = await fetch(
-    `${import.meta.env.VITE_API_BASE || '/api'}/production-daily/export?${params}`,
+    `${import.meta.env.VITE_API_BASE || '/api'}/production-daily/export?${params.toString()}`,
     {
       method: 'GET',
       credentials: 'include'

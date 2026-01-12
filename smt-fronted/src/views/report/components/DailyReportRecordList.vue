@@ -23,7 +23,11 @@ const props = defineProps({
 })
 
 const buildGroupKey = (prodDate, shift, factoryName, workshopName, lineName) =>
-  [formatDate(prodDate), shift, factoryName, workshopName, lineName].join('|')
+  [formatDate(prodDate), factoryName, workshopName, lineName].join('|')
+
+const shiftOrder = ['DAY', 'NIGHT']
+
+const buildShiftSummary = (shifts) => shifts.map((shift) => `${formatShift(shift)}班`).join('/')
 
 const groupRows = computed(() => {
   const map = new Map()
@@ -33,23 +37,44 @@ const groupRows = computed(() => {
       map.set(key, {
         key,
         prodDate: row.prodDate,
-        shift: row.shift,
         factoryName: row.factoryName,
         workshopName: row.workshopName,
         lineName: row.lineName,
-        processes: []
+        processes: [],
+        shifts: new Set()
       })
     }
-    map.get(key).processes.push(row)
+    const group = map.get(key)
+    group.processes.push(row)
+    if (row.shift) {
+      group.shifts.add(row.shift)
+    }
   })
-  return Array.from(map.values()).sort((a, b) => {
-    const aKey = `${a.prodDate}|${a.shift}`
-    const bKey = `${b.prodDate}|${b.shift}`
-    return aKey.localeCompare(bKey)
-  })
+  return Array.from(map.values())
+    .map((group) => {
+      const shifts = Array.from(group.shifts).sort(
+        (a, b) => shiftOrder.indexOf(a) - shiftOrder.indexOf(b)
+      )
+      return {
+        ...group,
+        shifts,
+        shiftSummary: buildShiftSummary(shifts)
+      }
+    })
+    .sort((a, b) => {
+      const aKey = `${a.prodDate}|${a.factoryName}|${a.workshopName}|${a.lineName}`
+      const bKey = `${b.prodDate}|${b.factoryName}|${b.workshopName}|${b.lineName}`
+      return aKey.localeCompare(bKey)
+    })
 })
 
 const processColumns = computed(() => [
+  {
+    title: '班别',
+    key: 'shift',
+    width: 70,
+    render: (row) => `${formatShift(row.shift)}班`
+  },
   { title: '机台号', key: 'machineNo', width: 120 },
   { title: '制程段', key: 'processName', width: 120 },
   { title: '生产料号', key: 'productCode', width: 140 },
@@ -80,6 +105,7 @@ const groupColumns = computed(() => [
     renderExpand: (group) => {
       return h('div', { style: 'padding: 12px 8px;' }, [
         h(NDataTable, {
+          class: 'detail-table',
           columns: processColumns.value,
           data: group.processes,
           rowKey: (row) => row.id,
@@ -94,27 +120,38 @@ const groupColumns = computed(() => [
     title: '日期',
     key: 'prodDate',
     width: 110,
-    render: (row) => formatDate(row.prodDate)
+    render: (row) => h('span', { class: 'summary-text' }, formatDate(row.prodDate))
   },
   {
-    title: '班别',
-    key: 'shift',
-    width: 70,
-    render: (row) => `${formatShift(row.shift)}班`
+    title: '厂区',
+    key: 'factoryName',
+    width: 120,
+    render: (row) => h('span', { class: 'summary-text' }, row.factoryName || '-')
   },
-  { title: '厂区', key: 'factoryName', width: 120 },
-  { title: '车间', key: 'workshopName', width: 120 },
-  { title: '线别', key: 'lineName', width: 120 },
+  {
+    title: '车间',
+    key: 'workshopName',
+    width: 120,
+    render: (row) => h('span', { class: 'summary-text' }, row.workshopName || '-')
+  },
+  {
+    title: '线别',
+    key: 'lineName',
+    width: 120,
+    render: (row) => h('span', { class: 'summary-text' }, row.lineName || '-')
+  },
   {
     title: '操作',
     key: 'actions',
     width: 160,
     render: (row) =>
       h(NSpace, { size: 8 }, () => [
-        h(
-          NButton,
-          { size: 'small', secondary: true, onClick: () => props.onEdit?.(row) },
-          { default: () => '编辑' }
+        ...(row.shifts || []).map((shift) =>
+          h(
+            NButton,
+            { size: 'small', secondary: true, onClick: () => props.onEdit?.(row, shift) },
+            { default: () => `编辑${formatShift(shift)}班` }
+          )
         ),
         h(
           NButton,
@@ -147,3 +184,12 @@ const groupColumns = computed(() => [
     />
   </n-card>
 </template>
+
+<style scoped>
+.summary-text {
+  color: #1f1f1f;
+}
+:deep(.detail-table .n-data-table-td) {
+  color: #5b5b5b;
+}
+</style>

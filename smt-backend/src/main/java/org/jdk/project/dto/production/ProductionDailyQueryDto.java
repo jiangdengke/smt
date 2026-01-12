@@ -11,4 +11,10 @@ public class ProductionDailyQueryDto {
   private LocalDate to;
 
   private String shift;
+
+  private String factoryName;
+
+  private String workshopName;
+
+  private String lineName;
 }
