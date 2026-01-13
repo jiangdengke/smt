@@ -1,41 +1,49 @@
 package org.jdk.project.dto.production;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.alibaba.excel.annotation.write.style.ContentStyle;
 import com.alibaba.excel.annotation.write.style.ColumnWidth;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Data;
+import com.alibaba.excel.enums.poi.HorizontalAlignmentEnum;
+import com.alibaba.excel.enums.poi.VerticalAlignmentEnum;
 
 @Data
 public class ProductionDailyExportDto {
 
   @ExcelProperty("日期")
+  @ContentStyle(horizontalAlignment = HorizontalAlignmentEnum.CENTER, verticalAlignment = VerticalAlignmentEnum.CENTER)
   @ColumnWidth(12)
   private LocalDate prodDate;
 
-  @ExcelProperty("班别")
-  @ColumnWidth(8)
-  private String shift;
-
   @ExcelProperty("厂区")
+  @ContentStyle(horizontalAlignment = HorizontalAlignmentEnum.CENTER, verticalAlignment = VerticalAlignmentEnum.CENTER)
   @ColumnWidth(12)
   private String factoryName;
 
   @ExcelProperty("车间")
+  @ContentStyle(horizontalAlignment = HorizontalAlignmentEnum.CENTER, verticalAlignment = VerticalAlignmentEnum.CENTER)
   @ColumnWidth(12)
   private String workshopName;
 
   @ExcelProperty("线别")
+  @ContentStyle(horizontalAlignment = HorizontalAlignmentEnum.CENTER, verticalAlignment = VerticalAlignmentEnum.CENTER)
   @ColumnWidth(12)
   private String lineName;
 
-  @ExcelProperty("机台号")
-  @ColumnWidth(12)
-  private String machineNo;
+  @ExcelProperty("班别")
+  @ContentStyle(horizontalAlignment = HorizontalAlignmentEnum.CENTER, verticalAlignment = VerticalAlignmentEnum.CENTER)
+  @ColumnWidth(8)
+  private String shift;
 
   @ExcelProperty("制程段")
   @ColumnWidth(15)
   private String processName;
+
+  @ExcelProperty("机台号")
+  @ColumnWidth(12)
+  private String machineNo;
 
   @ExcelProperty("生产料号")
   @ColumnWidth(20)

@@ -10,6 +10,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,10 @@ import org.jdk.project.dto.production.ProductionDailyResponse;
 import org.jdk.project.exception.BusinessException;
 import org.jdk.project.repository.ProductionDailyRepository;
 import org.jdk.project.repository.RepairRecordRepository;
-import org.jdk.project.utils.excel.ColMergeStrategy;
+import org.jdk.project.utils.excel.ColumnCenterStyleStrategy;
+import org.jdk.project.utils.excel.ColumnFillStyleStrategy;
+import org.jdk.project.utils.excel.GroupColMergeStrategy;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -274,8 +278,7 @@ public class ProductionDailyService {
 
   private void writeExport(HttpServletResponse response, List<ProductionDailyProcessViewDto> records)
       throws IOException {
-    List<ProductionDailyExportDto> exportData =
-        records.stream().map(this::convertToExportDto).toList();
+    List<ProductionDailyExportDto> exportData = buildExportData(records);
     response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     response.setCharacterEncoding("utf-8");
     String fileName =
@@ -283,10 +286,141 @@ public class ProductionDailyService {
             .replaceAll("\\+", "%20");
     response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
     EasyExcel.write(response.getOutputStream(), ProductionDailyExportDto.class)
-        .registerWriteHandler(new ColMergeStrategy(1, 0, 1, 2, 3, 4))
+        .registerWriteHandler(
+            new GroupColMergeStrategy(
+                1, new int[] {0, 1, 2, 3}, new int[] {0, 1, 2, 3}, 5, "合计"))
+        .registerWriteHandler(
+            new GroupColMergeStrategy(1, new int[] {4}, new int[] {0, 1, 2, 3, 4}))
+        .registerWriteHandler(new ColumnCenterStyleStrategy(0, 1, 2, 3, 4))
+        .registerWriteHandler(
+            new ColumnFillStyleStrategy(IndexedColors.YELLOW.getIndex(), 13))
         .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
         .sheet("每日产能")
         .doWrite(exportData);
+  }
+
+  private List<ProductionDailyExportDto> buildExportData(
+      List<ProductionDailyProcessViewDto> records) {
+    List<ProductionDailyExportDto> result = new ArrayList<>();
+    if (records == null || records.isEmpty()) {
+      return result;
+    }
+    String currentGroupKey = null;
+    List<SummaryBucket> buckets = new ArrayList<>();
+    for (ProductionDailyProcessViewDto record : records) {
+      String groupKey = buildGroupKey(record);
+      if (currentGroupKey != null && !currentGroupKey.equals(groupKey)) {
+        appendGroupSummaries(result, buckets);
+        buckets.clear();
+      }
+      currentGroupKey = groupKey;
+      result.add(convertToExportDto(record));
+      SummaryBucket bucket = findOrCreateBucket(buckets, record);
+      bucket.add(record);
+    }
+    appendGroupSummaries(result, buckets);
+    return result;
+  }
+
+  private String buildSummaryKey(ProductionDailyProcessViewDto record) {
+    return String.valueOf(record.getProdDate())
+        + "|"
+        + record.getFactoryName()
+        + "|"
+        + record.getWorkshopName()
+        + "|"
+        + record.getLineName()
+        + "|"
+        + record.getProcessName();
+  }
+
+  private String buildGroupKey(ProductionDailyProcessViewDto record) {
+    return String.valueOf(record.getProdDate())
+        + "|"
+        + record.getFactoryName()
+        + "|"
+        + record.getWorkshopName()
+        + "|"
+        + record.getLineName();
+  }
+
+  private SummaryBucket findOrCreateBucket(
+      List<SummaryBucket> summaries, ProductionDailyProcessViewDto record) {
+    String key = buildSummaryKey(record);
+    for (SummaryBucket bucket : summaries) {
+      if (bucket.key.equals(key)) {
+        return bucket;
+      }
+    }
+    SummaryBucket bucket = new SummaryBucket(record, key);
+    summaries.add(bucket);
+    return bucket;
+  }
+
+  private void appendGroupSummaries(List<ProductionDailyExportDto> result, List<SummaryBucket> buckets) {
+    for (SummaryBucket bucket : buckets) {
+      result.add(toSummaryRow(bucket));
+    }
+  }
+
+  private ProductionDailyExportDto toSummaryRow(SummaryBucket bucket) {
+    ProductionDailyExportDto summary = new ProductionDailyExportDto();
+    summary.setProdDate(null);
+    summary.setFactoryName(null);
+    summary.setWorkshopName(null);
+    summary.setLineName(null);
+    summary.setShift("");
+    summary.setProcessName(bucket.processName + "合计");
+    summary.setTargetOutput(bucket.totalTarget);
+    summary.setActualOutput(bucket.totalActual);
+    if (bucket.totalTarget != null && bucket.totalActual != null) {
+      summary.setGap(bucket.totalActual - bucket.totalTarget);
+      summary.setAchievementRate(formatRate(bucket.totalTarget, bucket.totalActual));
+    } else {
+      summary.setGap(null);
+      summary.setAchievementRate("-");
+    }
+    return summary;
+  }
+
+  private String formatRate(Integer targetOutput, Integer actualOutput) {
+    if (targetOutput == null || targetOutput == 0 || actualOutput == null) {
+      return "-";
+    }
+    BigDecimal rate =
+        BigDecimal.valueOf(actualOutput)
+            .multiply(BigDecimal.valueOf(100))
+            .divide(BigDecimal.valueOf(targetOutput), 2, RoundingMode.HALF_UP);
+    return rate + "%";
+  }
+
+  private static final class SummaryBucket {
+    private final String key;
+    private final LocalDate prodDate;
+    private final String factoryName;
+    private final String workshopName;
+    private final String lineName;
+    private final String processName;
+    private Integer totalTarget;
+    private Integer totalActual;
+
+    private SummaryBucket(ProductionDailyProcessViewDto record, String key) {
+      this.key = key;
+      this.prodDate = record.getProdDate();
+      this.factoryName = record.getFactoryName();
+      this.workshopName = record.getWorkshopName();
+      this.lineName = record.getLineName();
+      this.processName = record.getProcessName();
+    }
+
+    private void add(ProductionDailyProcessViewDto record) {
+      if (record.getTargetOutput() != null) {
+        totalTarget = totalTarget == null ? record.getTargetOutput() : totalTarget + record.getTargetOutput();
+      }
+      if (record.getActualOutput() != null) {
+        totalActual = totalActual == null ? record.getActualOutput() : totalActual + record.getActualOutput();
+      }
+    }
   }
 
   private void validateSameGroup(List<ProductionDailyProcessViewDto> records) {

@@ -79,10 +79,10 @@ public class ProductionDailyRepository {
         .where(condition)
         .orderBy(
             PRODUCTION_DAILY_HEADER.PROD_DATE.asc(),
-            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
             PRODUCTION_DAILY_HEADER.FACTORY_NAME.asc(),
             PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.asc(),
             PRODUCTION_DAILY_HEADER.LINE_NAME.asc(),
+            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
             PRODUCTION_DAILY_PROCESS.PROCESS_NAME.asc(),
             PRODUCTION_DAILY_PROCESS.MACHINE_NO.asc())
         .fetchInto(ProductionDailyProcessViewDto.class);
@@ -105,10 +105,10 @@ public class ProductionDailyRepository {
         .where(PRODUCTION_DAILY_PROCESS.ID.in(ids))
         .orderBy(
             PRODUCTION_DAILY_HEADER.PROD_DATE.asc(),
-            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
             PRODUCTION_DAILY_HEADER.FACTORY_NAME.asc(),
             PRODUCTION_DAILY_HEADER.WORKSHOP_NAME.asc(),
             PRODUCTION_DAILY_HEADER.LINE_NAME.asc(),
+            PRODUCTION_DAILY_HEADER.SHIFT.asc(),
             PRODUCTION_DAILY_PROCESS.PROCESS_NAME.asc(),
             PRODUCTION_DAILY_PROCESS.MACHINE_NO.asc())
         .fetchInto(ProductionDailyProcessViewDto.class);
