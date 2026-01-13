@@ -120,25 +120,25 @@ const groupColumns = computed(() => [
     title: '日期',
     key: 'prodDate',
     width: 110,
-    render: (row) => h('span', { class: 'summary-text' }, formatDate(row.prodDate))
+    render: (row) => formatDate(row.prodDate)
   },
   {
     title: '厂区',
     key: 'factoryName',
     width: 120,
-    render: (row) => h('span', { class: 'summary-text' }, row.factoryName || '-')
+    render: (row) => row.factoryName || '-'
   },
   {
     title: '车间',
     key: 'workshopName',
     width: 120,
-    render: (row) => h('span', { class: 'summary-text' }, row.workshopName || '-')
+    render: (row) => row.workshopName || '-'
   },
   {
     title: '线别',
     key: 'lineName',
     width: 120,
-    render: (row) => h('span', { class: 'summary-text' }, row.lineName || '-')
+    render: (row) => row.lineName || '-'
   },
   {
     title: '操作',
@@ -172,6 +172,7 @@ const groupColumns = computed(() => [
 <template>
   <n-card title="每日产能记录" style="margin-top: 16px;" content-style="padding: 0;">
     <n-data-table
+      class="summary-table"
       :columns="groupColumns"
       :data="groupRows"
       :loading="loading"
@@ -186,10 +187,12 @@ const groupColumns = computed(() => [
 </template>
 
 <style scoped>
-.summary-text {
+:deep(.summary-table .n-data-table-tbody .n-data-table-td) {
   color: #1f1f1f;
+  background-color: #ffffff;
 }
-:deep(.detail-table .n-data-table-td) {
-  color: #5b5b5b;
+:deep(.detail-table .n-data-table-tbody .n-data-table-td) {
+  color: #6b6b6b;
+  background-color: #f6f7f9;
 }
 </style>

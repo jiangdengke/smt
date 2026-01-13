@@ -1,20 +1,18 @@
 package org.jdk.project.utils.excel;
 
-import com.alibaba.excel.metadata.Head;
-import com.alibaba.excel.metadata.data.WriteCellData;
-import com.alibaba.excel.write.handler.CellWriteHandler;
+import com.alibaba.excel.write.handler.RowWriteHandler;
 import com.alibaba.excel.write.metadata.holder.WriteSheetHolder;
 import com.alibaba.excel.write.metadata.holder.WriteTableHolder;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
 
 /** Applies a fill color to specified columns. */
-public class ColumnFillStyleStrategy implements CellWriteHandler {
+public class ColumnFillStyleStrategy implements RowWriteHandler {
 
   private final int[] columnIndices;
   private final short fillColorIndex;
@@ -26,40 +24,32 @@ public class ColumnFillStyleStrategy implements CellWriteHandler {
   }
 
   @Override
-  public void afterCellDispose(
+  public void afterRowDispose(
       WriteSheetHolder writeSheetHolder,
       WriteTableHolder writeTableHolder,
-      List<WriteCellData<?>> cellDataList,
-      Cell cell,
-      Head head,
+      Row row,
       Integer relativeRowIndex,
       Boolean isHead) {
-    if (isHead) {
+    if (Boolean.TRUE.equals(isHead) || row == null) {
       return;
     }
-    if (!isTargetColumn(cell.getColumnIndex())) {
-      return;
-    }
-    CellStyle original = cell.getCellStyle();
-    CellStyle cached = styleCache.get(original);
-    if (cached == null) {
-      Workbook workbook = cell.getSheet().getWorkbook();
-      CellStyle style = workbook.createCellStyle();
-      style.cloneStyleFrom(original);
-      style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-      style.setFillForegroundColor(fillColorIndex);
-      styleCache.put(original, style);
-      cached = style;
-    }
-    cell.setCellStyle(cached);
-  }
-
-  private boolean isTargetColumn(int colIndex) {
-    for (int index : columnIndices) {
-      if (index == colIndex) {
-        return true;
+    Workbook workbook = row.getSheet().getWorkbook();
+    for (int colIndex : columnIndices) {
+      Cell cell = row.getCell(colIndex);
+      if (cell == null) {
+        cell = row.createCell(colIndex);
       }
+      CellStyle original = cell.getCellStyle();
+      CellStyle cached = styleCache.get(original);
+      if (cached == null) {
+        CellStyle style = workbook.createCellStyle();
+        style.cloneStyleFrom(original);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setFillForegroundColor(fillColorIndex);
+        styleCache.put(original, style);
+        cached = style;
+      }
+      cell.setCellStyle(cached);
     }
-    return false;
   }
 }

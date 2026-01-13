@@ -1,7 +1,6 @@
 package org.jdk.project.service;
 
 import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -26,7 +25,10 @@ import org.jdk.project.repository.ProductionDailyRepository;
 import org.jdk.project.repository.RepairRecordRepository;
 import org.jdk.project.utils.excel.ColumnCenterStyleStrategy;
 import org.jdk.project.utils.excel.ColumnFillStyleStrategy;
+import org.jdk.project.utils.excel.CompactColumnWidthStyleStrategy;
 import org.jdk.project.utils.excel.GroupColMergeStrategy;
+import org.jdk.project.utils.excel.SummaryRowMergeStrategy;
+import org.jdk.project.utils.excel.SummaryRowFillStyleStrategy;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -249,7 +251,7 @@ public class ProductionDailyService {
 
   private ProductionDailyExportDto convertToExportDto(ProductionDailyProcessViewDto dto) {
     ProductionDailyExportDto export = new ProductionDailyExportDto();
-    export.setProdDate(dto.getProdDate());
+    export.setProdDate(dto.getProdDate() == null ? null : dto.getProdDate().toString());
     export.setShift("DAY".equals(dto.getShift()) ? "白" : "夜"); // Simplified as per image: "白", "夜"
     export.setFactoryName(dto.getFactoryName());
     export.setWorkshopName(dto.getWorkshopName());
@@ -289,12 +291,15 @@ public class ProductionDailyService {
         .registerWriteHandler(
             new GroupColMergeStrategy(
                 1, new int[] {0, 1, 2, 3}, new int[] {0, 1, 2, 3}, 5, "合计"))
+        .registerWriteHandler(new SummaryRowMergeStrategy(1, 5, "合计", 0, 11))
         .registerWriteHandler(
             new GroupColMergeStrategy(1, new int[] {4}, new int[] {0, 1, 2, 3, 4}))
         .registerWriteHandler(new ColumnCenterStyleStrategy(0, 1, 2, 3, 4))
         .registerWriteHandler(
             new ColumnFillStyleStrategy(IndexedColors.YELLOW.getIndex(), 13))
-        .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+        .registerWriteHandler(
+            new SummaryRowFillStyleStrategy(1, 5, "合计", 0, 18, IndexedColors.GREEN.getIndex()))
+        .registerWriteHandler(new CompactColumnWidthStyleStrategy(0))
         .sheet("每日产能")
         .doWrite(exportData);
   }
@@ -365,12 +370,13 @@ public class ProductionDailyService {
 
   private ProductionDailyExportDto toSummaryRow(SummaryBucket bucket) {
     ProductionDailyExportDto summary = new ProductionDailyExportDto();
-    summary.setProdDate(null);
+    String label = bucket.processName + "合计";
+    summary.setProdDate(label);
     summary.setFactoryName(null);
     summary.setWorkshopName(null);
     summary.setLineName(null);
     summary.setShift("");
-    summary.setProcessName(bucket.processName + "合计");
+    summary.setProcessName(label);
     summary.setTargetOutput(bucket.totalTarget);
     summary.setActualOutput(bucket.totalActual);
     if (bucket.totalTarget != null && bucket.totalActual != null) {
