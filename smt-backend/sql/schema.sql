@@ -84,6 +84,7 @@ CREATE TABLE smtBackend.repair_record
     [is_fixed]              BIT           NOT NULL DEFAULT 0, -- 是否已修复：0未修复/1已修复
     [fixed_at]              DATETIME2     NULL, -- 修复时间（已修复必填）
     [repair_minutes]        INT           NULL, -- 维修耗时(分钟，已修复必填)
+    [down_minutes]          INT           NULL, -- 理论Down机时间(分钟，生产回填可为空)
     CONSTRAINT [PK_repair_record] PRIMARY KEY ([id]),
     CONSTRAINT [CK_repair_record_shift] CHECK ([shift] IN ('DAY', 'NIGHT')),
     CONSTRAINT [CK_repair_record_fixed_at]
@@ -91,7 +92,9 @@ CREATE TABLE smtBackend.repair_record
     CONSTRAINT [CK_repair_record_minutes]
         CHECK (([is_fixed] = 0 AND [repair_minutes] IS NULL) OR ([is_fixed] = 1 AND [repair_minutes] IS NOT NULL)),
     CONSTRAINT [CK_repair_record_minutes_nonnegative]
-        CHECK ([repair_minutes] IS NULL OR [repair_minutes] >= 0)
+        CHECK ([repair_minutes] IS NULL OR [repair_minutes] >= 0),
+    CONSTRAINT [CK_repair_record_down_minutes_nonnegative]
+        CHECK ([down_minutes] IS NULL OR [down_minutes] >= 0)
 );
 
 CREATE INDEX [IX_repair_record_source_process]

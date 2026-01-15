@@ -246,6 +246,7 @@ public class ProductionDailyService {
         false,
         null,
         null,
+        snapshot.getDownMinutes(),
         processId);
   }
 

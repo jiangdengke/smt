@@ -8,9 +8,18 @@ logging:
       springframework:
         security: debug
       jooq: info
+management:
+  metrics:
+    binders:
+      processor:
+        enabled: false
 spring:
   main:
     web-application-type: servlet
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.metrics.SystemMetricsAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.metrics.web.tomcat.TomcatMetricsAutoConfiguration
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=project;encrypt=false;trustServerCertificate=true
     username: sa

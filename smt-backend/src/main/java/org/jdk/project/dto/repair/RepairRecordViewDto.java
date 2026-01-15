@@ -21,6 +21,7 @@ public class RepairRecordViewDto {
   private Boolean isFixed;
   private LocalDateTime fixedAt;
   private Integer repairMinutes;
+  private Integer downMinutes;
   private String teamName;
   private String responsiblePersonName;
   private List<String> repairPersonNames;

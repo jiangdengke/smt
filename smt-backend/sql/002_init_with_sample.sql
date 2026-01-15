@@ -79,6 +79,7 @@ CREATE TABLE smtBackend.repair_record
     [is_fixed]              BIT           NOT NULL DEFAULT 0, -- 是否已修复
     [fixed_at]              DATETIME2     NULL, -- 修复时间
     [repair_minutes]        INT           NULL, -- 维修耗时(分钟)
+    [down_minutes]          INT           NULL, -- 理论Down机时间(分钟)
     CONSTRAINT [PK_repair_record] PRIMARY KEY ([id]),
     CONSTRAINT [CK_repair_record_shift] CHECK ([shift] IN ('DAY', 'NIGHT')),
     CONSTRAINT [CK_repair_record_fixed_at]
@@ -86,7 +87,9 @@ CREATE TABLE smtBackend.repair_record
     CONSTRAINT [CK_repair_record_minutes]
         CHECK (([is_fixed] = 0 AND [repair_minutes] IS NULL) OR ([is_fixed] = 1 AND [repair_minutes] IS NOT NULL)),
     CONSTRAINT [CK_repair_record_minutes_nonnegative]
-        CHECK ([repair_minutes] IS NULL OR [repair_minutes] >= 0)
+        CHECK ([repair_minutes] IS NULL OR [repair_minutes] >= 0),
+    CONSTRAINT [CK_repair_record_down_minutes_nonnegative]
+        CHECK ([down_minutes] IS NULL OR [down_minutes] >= 0)
 );
 
 CREATE INDEX [IX_repair_record_source_process]
@@ -376,39 +379,39 @@ INSERT INTO smtBackend.repair_record
      [factory_name], [workshop_name], [line_name], [machine_no],
      [abnormal_category_name], [abnormal_type_name], [team_name], [responsible_person_name],
      [abnormal_desc], [solution],
-     [is_fixed], [fixed_at], [repair_minutes])
+     [is_fixed], [fixed_at], [repair_minutes], [down_minutes])
 VALUES
     (CONVERT(DATETIME2, '2025-05-01T08:20:00'), N'DAY',
      N'A厂', N'SMT-1', N'线别-1', N'M-102',
      N'设备故障', N'送料异常', N'一组', N'李明',
      N'贴片机连续抛料，吸嘴检测报警。', N'更换供料器弹簧并校准真空值。',
-     1, CONVERT(DATETIME2, '2025-05-01T09:00:00'), 40);
+     1, CONVERT(DATETIME2, '2025-05-01T09:00:00'), 40, 30);
 
 INSERT INTO smtBackend.repair_record
     ([occur_at], [shift],
      [factory_name], [workshop_name], [line_name], [machine_no],
      [abnormal_category_name], [abnormal_type_name], [team_name], [responsible_person_name],
      [abnormal_desc], [solution],
-     [is_fixed], [fixed_at], [repair_minutes])
+     [is_fixed], [fixed_at], [repair_minutes], [down_minutes])
 VALUES
     (CONVERT(DATETIME2, '2025-05-01T11:35:00'), N'DAY',
      N'A厂', N'SMT-2', N'线别-3', N'F-218',
      N'品质异常', N'漏贴', N'二组', N'周倩',
      N'首件抽检漏贴率异常。', N'调整贴装压力，补充物料巡检。',
-     0, NULL, NULL);
+     0, NULL, NULL, 0);
 
 INSERT INTO smtBackend.repair_record
     ([occur_at], [shift],
      [factory_name], [workshop_name], [line_name], [machine_no],
      [abnormal_category_name], [abnormal_type_name], [team_name], [responsible_person_name],
      [abnormal_desc], [solution],
-     [is_fixed], [fixed_at], [repair_minutes])
+     [is_fixed], [fixed_at], [repair_minutes], [down_minutes])
 VALUES
     (CONVERT(DATETIME2, '2025-05-01T19:10:00'), N'NIGHT',
      N'B厂', N'SMT-3', N'线别-1', N'P-306',
      N'保养问题', N'润滑不足', N'三组', N'陈涛',
      N'导轨摩擦噪音增大。', N'补充润滑油，清洁导轨。',
-     1, CONVERT(DATETIME2, '2025-05-01T20:05:00'), 55);
+     1, CONVERT(DATETIME2, '2025-05-01T20:05:00'), 55, 20);
 INSERT INTO smtBackend.repair_record_person ([repair_record_id], [person_name])
 SELECT r.[id], N'李明'
 FROM smtBackend.repair_record r

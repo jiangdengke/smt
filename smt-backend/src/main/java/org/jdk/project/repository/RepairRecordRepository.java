@@ -46,6 +46,7 @@ public class RepairRecordRepository {
                 REPAIR_RECORD.IS_FIXED,
                 REPAIR_RECORD.FIXED_AT,
                 REPAIR_RECORD.REPAIR_MINUTES,
+                REPAIR_RECORD.DOWN_MINUTES,
                 REPAIR_RECORD.TEAM_NAME,
                 REPAIR_RECORD.RESPONSIBLE_PERSON_NAME)
             .from(REPAIR_RECORD)
@@ -91,13 +92,14 @@ public class RepairRecordRepository {
       Boolean isFixed,
       LocalDateTime fixedAt,
       Integer repairMinutes,
+      Integer downMinutes,
       Long sourceProcessId) {
     String sql =
         "insert into smtBackend.repair_record ([occur_at], [shift], [factory_name],"
             + " [workshop_name], [line_name], [machine_no], [abnormal_category_name],"
             + " [abnormal_type_name], [team_name], [responsible_person_name], [abnormal_desc],"
-            + " [solution], [is_fixed], [fixed_at], [repair_minutes], [source_process_id])"
-            + " output inserted.id values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + " [solution], [is_fixed], [fixed_at], [repair_minutes], [down_minutes], [source_process_id])"
+            + " output inserted.id values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     return dsl.resultQuery(
             sql,
             occurAt,
@@ -115,6 +117,7 @@ public class RepairRecordRepository {
             isFixed,
             fixedAt,
             repairMinutes,
+            downMinutes,
             sourceProcessId)
         .fetchOne(0, Long.class);
   }
@@ -155,7 +158,8 @@ public class RepairRecordRepository {
       String solution,
       Boolean isFixed,
       LocalDateTime fixedAt,
-      Integer repairMinutes) {
+      Integer repairMinutes,
+      Integer downMinutes) {
     return dsl.update(REPAIR_RECORD)
         .set(REPAIR_RECORD.OCCUR_AT, occurAt)
         .set(REPAIR_RECORD.SHIFT, shift)
@@ -172,6 +176,7 @@ public class RepairRecordRepository {
         .set(REPAIR_RECORD.IS_FIXED, isFixed)
         .set(REPAIR_RECORD.FIXED_AT, fixedAt)
         .set(REPAIR_RECORD.REPAIR_MINUTES, repairMinutes)
+        .set(REPAIR_RECORD.DOWN_MINUTES, downMinutes)
         .where(REPAIR_RECORD.ID.eq(id))
         .execute();
   }

@@ -27,6 +27,7 @@ public class RepairRecordRequest {
   @NotNull private Boolean isFixed;
   private LocalDateTime fixedAt;
   @PositiveOrZero private Integer repairMinutes;
+  @PositiveOrZero private Integer downMinutes;
   @NotBlank private String teamName;
   @NotBlank private String responsiblePersonName;
   private List<String> repairPersonNames;

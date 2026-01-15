@@ -111,6 +111,7 @@ public class RepairRecordService {
   public Long create(RepairRecordRequest request) {
     String shift = normalizeShift(request.getShift());
     validateRepairState(request.getIsFixed(), request.getFixedAt(), request.getRepairMinutes());
+    validateNonNegative(request.getDownMinutes(), "理论Down机时间不能为负数");
     String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
     String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
     String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
@@ -139,6 +140,7 @@ public class RepairRecordService {
             request.getIsFixed(),
             request.getFixedAt(),
             request.getRepairMinutes(),
+            request.getDownMinutes(),
             null);
     if (recordId == null) {
       throw new BusinessException("维修记录创建失败");
@@ -151,6 +153,7 @@ public class RepairRecordService {
   public void update(Long id, RepairRecordRequest request) {
     String shift = normalizeShift(request.getShift());
     validateRepairState(request.getIsFixed(), request.getFixedAt(), request.getRepairMinutes());
+    validateNonNegative(request.getDownMinutes(), "理论Down机时间不能为负数");
     String factoryName = normalizeRequiredText(request.getFactoryName(), "厂区不能为空");
     String workshopName = normalizeRequiredText(request.getWorkshopName(), "车间不能为空");
     String lineName = normalizeRequiredText(request.getLineName(), "线别不能为空");
@@ -180,7 +183,8 @@ public class RepairRecordService {
             solution,
             request.getIsFixed(),
             request.getFixedAt(),
-            request.getRepairMinutes());
+            request.getRepairMinutes(),
+            request.getDownMinutes());
     if (updated <= 0) {
       throw new BusinessException("维修记录不存在");
     }
@@ -359,6 +363,15 @@ public class RepairRecordService {
       if (repairMinutes != null) {
         throw new BusinessException("未修复时不能填写维修耗时");
       }
+    }
+  }
+
+  private void validateNonNegative(Integer value, String message) {
+    if (value == null) {
+      return;
+    }
+    if (value < 0) {
+      throw new BusinessException(message);
     }
   }
 
